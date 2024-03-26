@@ -17,11 +17,12 @@ db = SQLAlchemy(app)
 CORS(app)
 jwt = JWTManager(app)
 
-from app.models import user_model, topic_model
-from app.routes import auth_routes, topic_routes
+from app.models import user_model, topic_model, statu_model
+from app.routes import auth_routes, topic_routes, statu_routes
 
 app.register_blueprint(auth_routes.bp)
 app.register_blueprint(topic_routes.bp)
+app.register_blueprint(statu_routes.bp)
 
 with app.app_context():
     db.create_all()

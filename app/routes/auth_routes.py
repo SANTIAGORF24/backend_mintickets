@@ -12,7 +12,7 @@ def register():
     username = data.get('username')
     password = data.get('password')
     email = data.get('email')
-    first_name = data.get('first_name')
+    first_name = data.get('first_name') 
     last_name = data.get('last_name')
     existing_user = User.query.filter_by(username=username).first()
     if existing_user:
@@ -48,5 +48,101 @@ def get_user():
     user = User.query.get(user_id)
     if user:
         return jsonify({'email': user.email}), 200
+    else:
+        return jsonify({'message': 'Usuario no encontrado'}), 404
+
+@bp.route('/users/username/<username>', methods=['GET'])
+def get_user_by_username(username):
+    user = User.query.filter_by(username=username).first()
+    if user:
+        return jsonify({
+            'username': user.username,
+            'email': user.email,
+            'first_name': user.first_name,
+            'last_name': user.last_name
+        }), 200
+    else:
+        return jsonify({'message': 'Usuario no encontrado'}), 404
+
+@bp.route('/users/email/<email>', methods=['GET'])
+def get_user_by_email(email):
+    user = User.query.filter_by(email=email).first()
+    if user:
+        return jsonify({
+            'username': user.username,
+            'email': user.email,
+            'first_name': user.first_name,
+            'last_name': user.last_name
+        }), 200
+    else:
+        return jsonify({'message': 'Usuario no encontrado'}), 404
+
+@bp.route('/users/firstName/<first_name>', methods=['GET'])
+def get_user_by_first_name(first_name):
+    user = User.query.filter_by(first_name=first_name).first()
+    if user:
+        return jsonify({
+            'username': user.username,
+            'email': user.email,
+            'first_name': user.first_name,
+            'last_name': user.last_name
+        }), 200
+    else:
+        return jsonify({'message': 'Usuario no encontrado'}), 404
+
+@bp.route('/users/lastName/<last_name>', methods=['GET'])
+def get_user_by_last_name(last_name):
+    user = User.query.filter_by(last_name=last_name).first()
+    if user:
+        return jsonify({
+            'username': user.username,
+            'email': user.email,
+            'first_name': user.first_name,
+            'last_name': user.last_name
+        }), 200
+    else:
+        return jsonify({'message': 'Usuario no encontrado'}), 404
+    
+
+@bp.route('/users/<username>', methods=['PUT'])
+def update_user(username):
+    # Obtener el usuario a actualizar
+    user = User.query.filter_by(username=username).first()
+
+    # Verificar si el usuario existe
+    if not user:
+        return jsonify({'message': 'Usuario no encontrado'}), 404
+
+    # Obtener los datos del cuerpo de la solicitud
+    data = request.get_json()
+
+    # Validar y actualizar los campos proporcionados
+    new_username = data.get('username', user.username)
+    new_password = data.get('password', user.password)
+    new_email = data.get('email', user.email)
+    new_first_name = data.get('first_name', user.first_name)
+    new_last_name = data.get('last_name', user.last_name)
+
+    # Actualizar los datos del usuario en la base de datos
+    user.username = new_username
+    user.password = bcrypt.hashpw(new_password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+    user.email = new_email
+    user.first_name = new_first_name
+    user.last_name = new_last_name
+
+    try:
+        db.session.commit()
+        return jsonify({'message': 'Usuario actualizado exitosamente'}), 200
+    except Exception as e:
+        db.session.rollback()  # Revertir cambios en caso de error
+        return jsonify({'message': f'Error al actualizar el usuario: {str(e)}'}), 500
+    
+@bp.route('/users/<username>', methods=['DELETE'])
+def delete_user(username):
+    user = User.query.filter_by(username=username).first()
+    if user:
+        db.session.delete(user)
+        db.session.commit()
+        return jsonify({'message': 'Usuario eliminado con éxito'}), 200
     else:
         return jsonify({'message': 'Usuario no encontrado'}), 404
