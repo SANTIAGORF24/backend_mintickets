@@ -34,17 +34,25 @@ def create_ticket():
 @bp.route("/", methods=["GET"])
 def get_tickets():
     tickets = Ticket.query.all()
-    tickets_data = [{
-        "id": ticket.id,
-        "fecha_creacion": ticket.fecha_creacion.strftime("%Y-%m-%d"),
-        "tema": ticket.tema,
-        "estado": ticket.estado,
-        "tercero_nombre": ticket.tercero_nombre,
-        "especialista_nombre": ticket.especialista_nombre,
-        "descripcion_caso": ticket.descripcion_caso,
-        "solucion_caso": ticket.solucion_caso
-    } for ticket in tickets]
+    tickets_data = []
+    for ticket in tickets:
+        ticket_info = {
+            "id": ticket.id,
+            "fecha_creacion": ticket.fecha_creacion.strftime("%Y-%m-%d"),
+            "tema": ticket.tema,
+            "estado": ticket.estado,
+            "tercero_nombre": ticket.tercero_nombre,
+            "especialista_nombre": ticket.especialista_nombre,
+            "descripcion_caso": ticket.descripcion_caso,
+            "solucion_caso": ticket.solucion_caso
+        }
+        if ticket.fecha_finalizacion:  # Verificar si la fecha de finalización no es None
+            ticket_info["fecha_finalizacion"] = ticket.fecha_finalizacion.strftime("%Y-%m-%d")
+        else:
+            ticket_info["fecha_finalizacion"] = None  # Opcional: Puedes establecerlo como None o cualquier otro valor que desees
+        tickets_data.append(ticket_info)
     return jsonify(tickets_data)
+
 
 @bp.route("/<int:id>", methods=["DELETE"])
 def delete_ticket(id):
