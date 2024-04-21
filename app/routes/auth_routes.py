@@ -146,3 +146,29 @@ def delete_user(username):
         return jsonify({'message': 'Usuario eliminado con éxito'}), 200
     else:
         return jsonify({'message': 'Usuario no encontrado'}), 404
+    
+@bp.route('/users/names', methods=['GET'])
+def get_user_names():
+    users = User.query.all()
+    if users:
+        user_names = [{'id': user.id, 'name': f"{user.first_name} {user.last_name}"} for user in users]
+        return jsonify({'user_names': user_names}), 200
+    else:
+        return jsonify({'message': 'No se encontraron usuarios'}), 404
+
+@bp.route('/tickets/register', methods=['POST'])
+def register_ticket():
+    data = request.get_json()
+    fecha_creacion = data.get('fecha_creacion')
+    tema = data.get('tema')
+    estado = data.get('estado')
+    tercero_nombre = data.get('tercero_nombre')
+    especialista_nombre = data.get('especialista_nombre')
+    especialista_id = data.get('especialista_id')  # Recibir el ID del especialista
+    descripcion_caso = data.get('descripcion_caso')
+    solucion_caso = data.get('solucion_caso')
+
+    # Aquí puedes utilizar los datos recibidos para crear el ticket en tu base de datos
+    # Asegúrate de utilizar especialista_id para almacenar el ID del especialista
+
+    return jsonify({'message': 'Ticket creado exitosamente'}), 201
