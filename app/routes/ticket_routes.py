@@ -29,3 +29,26 @@ def create_ticket():
     except Exception as e:
         db.session.rollback()
         return jsonify({"error": str(e)}), 500
+    
+
+@bp.route("/", methods=["GET"])
+def get_tickets():
+    tickets = Ticket.query.all()
+    tickets_data = [{
+        "id": ticket.id,
+        "fecha_creacion": ticket.fecha_creacion.strftime("%Y-%m-%dT%H:%M:%S.%fZ"),
+        "tema": ticket.tema,
+        "estado": ticket.estado,
+        "tercero_nombre": ticket.tercero_nombre,
+        "especialista_nombre": ticket.especialista_nombre,
+        "descripcion_caso": ticket.descripcion_caso,
+        "solucion_caso": ticket.solucion_caso
+    } for ticket in tickets]
+    return jsonify(tickets_data)
+
+@bp.route("/<int:id>", methods=["DELETE"])
+def delete_ticket(id):
+    ticket = Ticket.query.get_or_404(id)
+    db.session.delete(ticket)
+    db.session.commit()
+    return jsonify({"message": "Ticket eliminado correctamente"}), 200

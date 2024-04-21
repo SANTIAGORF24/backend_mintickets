@@ -35,7 +35,7 @@ def login():
         password_bytes = password.encode('utf-8')
         if bcrypt.checkpw(password_bytes, user.password.encode('utf-8')):
             access_token = create_access_token(identity=user.id)
-            return jsonify({'access_token': access_token, 'user_email': user.email}), 200
+            return jsonify({'access_token': access_token, 'user_id': user.id, 'user_email': user.email}, ), 200
         else:
             return jsonify({'message': 'Contraseña inválida'}), 401
     else:
@@ -47,9 +47,12 @@ def get_user():
     user_id = get_jwt_identity()
     user = User.query.get(user_id)
     if user:
-        return jsonify({'email': user.email}), 200
+        full_name = f"{user.first_name} {user.last_name}"
+        return jsonify({'email': user.email, 'id': user.id, 'full_name': full_name}), 200
     else:
         return jsonify({'message': 'Usuario no encontrado'}), 404
+
+
 
 @bp.route('/users/username/<username>', methods=['GET'])
 def get_user_by_username(username):
