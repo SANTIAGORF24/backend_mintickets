@@ -11,7 +11,7 @@ def create_ticket():
     data = request.json
     try:
         new_ticket = Ticket(
-            fecha_creacion=datetime.strptime(data["fecha_creacion"], "%Y-%m-%dT%H:%M:%S.%fZ"),
+            fecha_creacion=datetime.strptime(data["fecha_creacion"], "%Y-%m-%dT%H:%M:%S.%fZ").date(),
             tema=data["tema"],
             estado=data["estado"],
             tercero_nombre=data["tercero_nombre"],
@@ -36,7 +36,7 @@ def get_tickets():
     tickets = Ticket.query.all()
     tickets_data = [{
         "id": ticket.id,
-        "fecha_creacion": ticket.fecha_creacion.strftime("%Y-%m-%dT%H:%M:%S.%fZ"),
+        "fecha_creacion": ticket.fecha_creacion.strftime("%Y-%m-%d"),
         "tema": ticket.tema,
         "estado": ticket.estado,
         "tercero_nombre": ticket.tercero_nombre,
@@ -52,3 +52,22 @@ def delete_ticket(id):
     db.session.delete(ticket)
     db.session.commit()
     return jsonify({"message": "Ticket eliminado correctamente"}), 200
+
+
+@bp.route("/<int:id>", methods=["PUT", "PATCH"])
+def update_ticket(id):
+    ticket = Ticket.query.get_or_404(id)
+    data = request.json
+    try:
+        ticket.fecha_finalizacion = datetime.utcnow()  # Actualizar la fecha de finalización
+        ticket.tema = data.get("tema", ticket.tema)
+        ticket.estado = data.get("estado", ticket.estado)
+        ticket.tercero_nombre = data.get("tercero_nombre", ticket.tercero_nombre)
+        ticket.especialista_nombre = data.get("especialista_nombre", ticket.especialista_nombre)
+        ticket.descripcion_caso = data.get("descripcion_caso", ticket.descripcion_caso)
+        ticket.solucion_caso = data.get("solucion_caso", ticket.solucion_caso)
+        db.session.commit()
+        return jsonify({"message": "Ticket actualizado correctamente"}), 200
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": str(e)}), 500
