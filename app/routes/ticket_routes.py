@@ -17,7 +17,6 @@ def create_ticket():
             tercero_nombre=data["tercero_nombre"],
             especialista_nombre=data["especialista_nombre"],
             descripcion_caso=data["descripcion_caso"],
-            solucion_caso=data["solucion_caso"]
         )
         db.session.add(new_ticket)
         db.session.commit()
