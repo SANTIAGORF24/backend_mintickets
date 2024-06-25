@@ -154,7 +154,7 @@ def delete_user(username):
 def get_user_names():
     users = User.query.all()
     if users:
-        user_names = [{'id': user.id, 'name': f"{user.first_name} {user.last_name}"} for user in users]
+        user_names = [{'id': user.id, 'name': f"{user.first_name} {user.last_name}", 'email': user.email} for user in users]
         return jsonify({'user_names': user_names}), 200
     else:
         return jsonify({'message': 'No se encontraron usuarios'}), 404

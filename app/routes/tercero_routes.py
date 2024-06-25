@@ -8,10 +8,12 @@ bp = Blueprint('terceros', __name__, url_prefix='/terceros')
 @bp.route('', methods=['GET'])
 def get_terceros():
     terceros = Tercero.query.all()
-    output = []
-    for tercero in terceros:
-        output.append({'id': tercero.id, 'name': tercero.name, 'email': tercero.email})
-    return jsonify({'terceros': output})
+    if terceros:
+        terceros_data = [{'id': tercero.id, 'name': tercero.name, 'email': tercero.email} for tercero in terceros]
+        return jsonify({'terceros': terceros_data}), 200
+    else:
+        return jsonify({'message': 'No se encontraron terceros'}), 404
+
 
 @bp.route('', methods=['POST'])
 def add_tercero():
