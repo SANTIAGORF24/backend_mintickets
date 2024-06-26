@@ -8,13 +8,17 @@ class Ticket(db.Model):
     tema = db.Column(db.String(255), nullable=False)
     estado = db.Column(db.String(50), nullable=False)
     tercero_nombre = db.Column(db.String(120), nullable=True)
-    tercero_email = db.Column(db.String(120), nullable=True)  # Nueva columna
+    tercero_email = db.Column(db.String(120), nullable=True)
     especialista_nombre = db.Column(db.String(120), nullable=True)
-    especialista_email = db.Column(db.String(120), nullable=True)  # Nueva columna
+    especialista_email = db.Column(db.String(120), nullable=True)
     descripcion_caso = db.Column(db.Text, nullable=False)
     solucion_caso = db.Column(db.Text, nullable=True)
+    tiempo_de_respuesta = db.Column(db.Integer, nullable=True)
+    actitud = db.Column(db.Integer, nullable=True)
+    respuesta = db.Column(db.Integer, nullable=True)
 
     def __repr__(self):
         return (f"Ticket('{self.tema}', '{self.fecha_creacion}', '{self.fecha_finalizacion}', "
                 f"'{self.estado}', '{self.tercero_nombre}', '{self.tercero_email}', "
-                f"'{self.especialista_nombre}', '{self.especialista_email}', '{self.descripcion_caso}', '{self.solucion_caso}')")
+                f"'{self.especialista_nombre}', '{self.especialista_email}', '{self.descripcion_caso}', '{self.solucion_caso}', "
+                f"'{self.tiempo_de_respuesta}', '{self.actitud}', '{self.respuesta}')")

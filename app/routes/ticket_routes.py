@@ -105,3 +105,18 @@ def get_ticket(id):
     else:
         ticket_info["fecha_finalizacion"] = None
     return jsonify(ticket_info)
+
+
+@bp.route("/<int:id>/rate", methods=["POST"])
+def rate_ticket(id):
+    ticket = Ticket.query.get_or_404(id)
+    data = request.json
+    try:
+        ticket.tiempo_de_respuesta = data.get("tiempo_de_respuesta")
+        ticket.actitud = data.get("actitud")
+        ticket.respuesta = data.get("respuesta")
+        db.session.commit()
+        return jsonify({"message": "Calificaciones actualizadas correctamente"}), 200
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": str(e)}), 500
