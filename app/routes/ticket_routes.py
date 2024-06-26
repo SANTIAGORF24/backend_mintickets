@@ -84,3 +84,24 @@ def update_ticket(id):
     except Exception as e:
         db.session.rollback()
         return jsonify({"error": str(e)}), 500
+
+@bp.route("/<int:id>", methods=["GET"])
+def get_ticket(id):
+    ticket = Ticket.query.get_or_404(id)
+    ticket_info = {
+        "id": ticket.id,
+        "fecha_creacion": ticket.fecha_creacion.strftime("%Y-%m-%d"),
+        "tema": ticket.tema,
+        "estado": ticket.estado,
+        "tercero_nombre": ticket.tercero_nombre,
+        "tercero_email": ticket.tercero_email,
+        "especialista_nombre": ticket.especialista_nombre,
+        "especialista_email": ticket.especialista_email,
+        "descripcion_caso": ticket.descripcion_caso,
+        "solucion_caso": ticket.solucion_caso
+    }
+    if ticket.fecha_finalizacion:
+        ticket_info["fecha_finalizacion"] = ticket.fecha_finalizacion.strftime("%Y-%m-%d")
+    else:
+        ticket_info["fecha_finalizacion"] = None
+    return jsonify(ticket_info)
