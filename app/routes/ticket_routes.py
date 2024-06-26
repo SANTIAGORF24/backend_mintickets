@@ -15,9 +15,9 @@ def create_ticket():
             tema=data["tema"],
             estado=data["estado"],
             tercero_nombre=data["tercero_nombre"],
-            tercero_email=data["tercero_email"],
+            tercero_email=data["tercero_email"],  # Incluir el correo del tercero
             especialista_nombre=data["especialista_nombre"],
-            especialista_email=data["especialista_email"],
+            especialista_email=data["especialista_email"],  # Incluir el correo del especialista
             descripcion_caso=data["descripcion_caso"],
         )
         db.session.add(new_ticket)
@@ -30,6 +30,7 @@ def create_ticket():
     except Exception as e:
         db.session.rollback()
         return jsonify({"error": str(e)}), 500
+    
 
 @bp.route("/", methods=["GET"])
 def get_tickets():
@@ -42,18 +43,19 @@ def get_tickets():
             "tema": ticket.tema,
             "estado": ticket.estado,
             "tercero_nombre": ticket.tercero_nombre,
-            "tercero_email": ticket.tercero_email,
+            "tercero_email": ticket.tercero_email,  # Incluir el correo del tercero
             "especialista_nombre": ticket.especialista_nombre,
-            "especialista_email": ticket.especialista_email,
+            "especialista_email": ticket.especialista_email,  # Incluir el correo del especialista
             "descripcion_caso": ticket.descripcion_caso,
             "solucion_caso": ticket.solucion_caso
         }
-        if (ticket.fecha_finalizacion):
+        if ticket.fecha_finalizacion:  # Verificar si la fecha de finalización no es None
             ticket_info["fecha_finalizacion"] = ticket.fecha_finalizacion.strftime("%Y-%m-%d")
         else:
-            ticket_info["fecha_finalizacion"] = None
+            ticket_info["fecha_finalizacion"] = None  # Opcional: Puedes establecerlo como None o cualquier otro valor que desees
         tickets_data.append(ticket_info)
     return jsonify(tickets_data)
+
 
 @bp.route("/<int:id>", methods=["DELETE"])
 def delete_ticket(id):
@@ -62,18 +64,19 @@ def delete_ticket(id):
     db.session.commit()
     return jsonify({"message": "Ticket eliminado correctamente"}), 200
 
+
 @bp.route("/<int:id>", methods=["PUT", "PATCH"])
 def update_ticket(id):
     ticket = Ticket.query.get_or_404(id)
     data = request.json
     try:
-        ticket.fecha_finalizacion = datetime.utcnow()
+        ticket.fecha_finalizacion = datetime.utcnow()  # Actualizar la fecha de finalización
         ticket.tema = data.get("tema", ticket.tema)
         ticket.estado = data.get("estado", ticket.estado)
         ticket.tercero_nombre = data.get("tercero_nombre", ticket.tercero_nombre)
-        ticket.tercero_email = data.get("tercero_email", ticket.tercero_email)
+        ticket.tercero_email = data.get("tercero_email", ticket.tercero_email)  # Actualizar el correo del tercero
         ticket.especialista_nombre = data.get("especialista_nombre", ticket.especialista_nombre)
-        ticket.especialista_email = data.get("especialista_email", ticket.especialista_email)
+        ticket.especialista_email = data.get("especialista_email", ticket.especialista_email)  # Actualizar el correo del especialista
         ticket.descripcion_caso = data.get("descripcion_caso", ticket.descripcion_caso)
         ticket.solucion_caso = data.get("solucion_caso", ticket.solucion_caso)
         db.session.commit()
