@@ -217,11 +217,14 @@ def finalize_ticket(id):
         </html>
         """
 
-        # Enviar correo electrónico
+        solucion_images = data.get("solucion_images", [])
+
+        # Enviar correo electrónico con imágenes adjuntas
         send_email(
             to_address=[ticket.tercero_email],
             subject=f"Solución ticket de {ticket.tercero_nombre}",
-            body=email_body
+            body=email_body,
+            images=solucion_images
         )
 
         return jsonify({"message": "Ticket finalizado y correo enviado correctamente"}), 200
@@ -231,6 +234,7 @@ def finalize_ticket(id):
         import traceback
         traceback.print_exc()
         return jsonify({"error": str(e)}), 500
+
 
 @bp.route("/<int:id>", methods=["GET"])
 def get_ticket(id):
@@ -257,7 +261,6 @@ def get_ticket(id):
         return jsonify({"error": str(e)}), 404
 
 
-
 @bp.route("/<int:id>/rate", methods=["POST"])
 def rate_ticket(id):
     ticket = Ticket.query.get_or_404(id)
@@ -266,6 +269,10 @@ def rate_ticket(id):
         ticket.tiempo_de_respuesta = data.get("tiempo_de_respuesta")
         ticket.actitud = data.get("actitud")
         ticket.respuesta = data.get("respuesta")
+
+        if data.get("solutionApproval") == "No":
+            ticket.estado = "Devuelto"
+
         db.session.commit()
         return jsonify({"message": "Calificaciones actualizadas correctamente"}), 200
     except Exception as e:
