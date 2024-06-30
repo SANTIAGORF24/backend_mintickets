@@ -15,7 +15,7 @@ SMTP_PASSWORD = '#B0g0t0@2024*'
 bp = Blueprint("tickets", __name__, url_prefix="/tickets")
 
 @bp.route("/register", methods=["POST"])
-def create_ticket():
+def create_ticket():    
     data = request.json
     try:
         new_ticket = Ticket(
