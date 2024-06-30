@@ -2,10 +2,11 @@ from flask import Blueprint, request, jsonify
 from app import db
 from app.models.ticket_model import Ticket
 from datetime import datetime
-from flask_jwt_extended import jwt_required, get_jwt_identity
 import smtplib
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
+from email.mime.image import MIMEImage
+import base64
 
 SMTP_SERVER = 'smtp.office365.com'
 SMTP_PORT = 587
@@ -23,66 +24,84 @@ def create_ticket():
             tema=data["tema"],
             estado=data["estado"],
             tercero_nombre=data["tercero_nombre"],
-            tercero_email=data["tercero_email"],  # Incluir el correo del tercero
+            tercero_email=data["tercero_email"],
             especialista_nombre=data["especialista_nombre"],
-            especialista_email=data["especialista_email"],  # Incluir el correo del especialista
+            especialista_email=data["especialista_email"],
             descripcion_caso=data["descripcion_caso"],
         )
         db.session.add(new_ticket)
         db.session.commit()
 
-        # Obtener el ID del ticket creado
         ticket_id = new_ticket.id
 
-        # Preparar el cuerpo del correo electrónico
         email_body = f"""
-        Ticket creado para {data['tercero_nombre']}
-
-        Cordial saludo {data['tercero_nombre']}
-
-        para consultar el estado de su ticket ingrese a http://localhost:3000/historial y digite el ID del ticket
-
-        Se ha creado un nuevo ticket con la siguiente descripción:
-
-        ID de ticket: {ticket_id}
-
-        Tema: {data['tema']}
-
-        Descripcion:
-
-        {data['descripcion_caso']}
-
-        El especialista {data['especialista_nombre']} lo atenderá lo más pronto posible
-
-        Tenga en cuenta que los casos los especialistas los atienden en orden de llegada
-
-        Atentamente,
-        Soporte TICS
+        <h2>Ticket creado para {data['tercero_nombre']}</h2>
+        <p>Cordial saludo {data['tercero_nombre']},</p>
+        <p>Para consultar el estado de su ticket ingrese a <a href="http://localhost:3000/historial">http://localhost:3000/historial</a> y digite el ID del ticket</p>
+        <p>Se ha creado un nuevo ticket con la siguiente descripción:</p>
+        <ul>
+            <li>ID de ticket: {ticket_id}</li>
+            <li>Tema: {data['tema']}</li>
+        </ul>
+        <h3>Descripción:</h3>
+        <p>{data['descripcion_caso']}</p>
+        <p>El especialista {data['especialista_nombre']} lo atenderá lo más pronto posible</p>
+        <p>Tenga en cuenta que los casos los especialistas los atienden en orden de llegada</p>
+        <p>Atentamente,<br>Soporte TICS</p>
         """
 
-        # Enviar correo electrónico
+        descripcion_images = data.get("descripcion_images", [])
+        
+        print(f"Número de imágenes a enviar: {len(descripcion_images)}")
+
         send_email(
             to_address=[data["especialista_email"], data["tercero_email"]],
             subject=f"Nuevo Ticket Creado para {data['tercero_nombre']}",
-            body=email_body
+            body=email_body,
+            images=descripcion_images
         )
 
         return jsonify({"message": "Ticket creado correctamente"}), 201
-    except KeyError as e:
-        return jsonify({"message": f"Falta el campo requerido: {str(e)}"}), 400
-    except ValueError as e:
-        return jsonify({"message": f"Error en el formato de fecha: {str(e)}"}), 400
     except Exception as e:
         db.session.rollback()
+        print(f"Error al crear el ticket: {str(e)}")
+        import traceback
+        traceback.print_exc()
         return jsonify({"error": str(e)}), 500
 
-def send_email(to_address, subject, body):
-    msg = MIMEMultipart()
+def send_email(to_address, subject, body, images=[]):
+    msg = MIMEMultipart('related')
     msg['From'] = SMTP_USERNAME
     msg['To'] = ', '.join(to_address)
     msg['Subject'] = subject
 
-    msg.attach(MIMEText(body, 'plain'))
+    # Crear la parte HTML del correo
+    html = f"""
+    <html>
+        <body>
+            {body}
+            <br><br>
+            {''.join([f'<img src="cid:image{i}" style="max-width:100%;">' for i in range(len(images))])}
+        </body>
+    </html>
+    """
+
+    # Adjuntar la parte HTML
+    msg.attach(MIMEText(html, 'html'))
+
+    # Adjuntar las imágenes
+    for i, image_data in enumerate(images):
+        try:
+            # Asegúrate de que image_data es una cadena base64 válida
+            if ',' in image_data:
+                image_data = image_data.split(',', 1)[1]
+            
+            image_binary = base64.b64decode(image_data)
+            image = MIMEImage(image_binary)
+            image.add_header('Content-ID', f'<image{i}>')
+            msg.attach(image)
+        except Exception as img_error:
+            print(f"Error procesando imagen {i}: {str(img_error)}")
 
     try:
         server = smtplib.SMTP(SMTP_SERVER, SMTP_PORT)
@@ -91,8 +110,11 @@ def send_email(to_address, subject, body):
         text = msg.as_string()
         server.sendmail(SMTP_USERNAME, to_address, text)
         server.quit()
+        print("Correo enviado exitosamente")
     except Exception as e:
         print(f"Error enviando correo: {str(e)}")
+        import traceback
+        traceback.print_exc()
 
 @bp.route("/", methods=["GET"])
 def get_tickets():
@@ -174,24 +196,25 @@ def finalize_ticket(id):
         # Generar enlace de encuesta
         encuestaLink = f"http://localhost:3000/encuesta?id={ticket.id}"
 
-        # Preparar el cuerpo del correo electrónico
+        # Preparar el cuerpo del correo electrónico en HTML
         email_body = f"""
-        Cordial saludo {ticket.tercero_nombre},
-
-        El especialista {ticket.especialista_nombre} ha solucionado su ticket.
-
-        Tema: {ticket.tema}
-
-        Descripción del caso:
-        {ticket.descripcion_caso}
-
-        Solución al caso:
-        {ticket.solucion_caso}
-
-        Por favor, califique la solución del ticket aquí: {encuestaLink}
-
-        Atentamente,
-        Soporte TICS
+        <html>
+        <body>
+            <h2>Ticket solucionado para {ticket.tercero_nombre}</h2>
+            <p>Cordial saludo {ticket.tercero_nombre},</p>
+            <p>El especialista {ticket.especialista_nombre} ha solucionado su ticket.</p>
+            <ul>
+                <li>ID de ticket: {ticket.id}</li>
+                <li>Tema: {ticket.tema}</li>
+            </ul>
+            <h3>Descripción del caso:</h3>
+            <p>{ticket.descripcion_caso}</p>
+            <h3>Solución al caso:</h3>
+            <p>{ticket.solucion_caso}</p>
+            <p>Por favor, califique la solución del ticket aquí: <a href="{encuestaLink}">{encuestaLink}</a></p>
+            <p>Atentamente,<br>Soporte TICS</p>
+        </body>
+        </html>
         """
 
         # Enviar correo electrónico
@@ -204,8 +227,10 @@ def finalize_ticket(id):
         return jsonify({"message": "Ticket finalizado y correo enviado correctamente"}), 200
     except Exception as e:
         db.session.rollback()
+        print(f"Error al finalizar el ticket: {str(e)}")
+        import traceback
+        traceback.print_exc()
         return jsonify({"error": str(e)}), 500
-
 
 @bp.route("/<int:id>", methods=["GET"])
 def get_ticket(id):
