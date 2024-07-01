@@ -7,6 +7,9 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.mime.image import MIMEImage
 import base64
+from datetime import datetime, timedelta
+import pytz
+
 
 SMTP_SERVER = 'smtp.office365.com'
 SMTP_PORT = 587
@@ -16,11 +19,13 @@ SMTP_PASSWORD = '#B0g0t0@2024*'
 bp = Blueprint("tickets", __name__, url_prefix="/tickets")
 
 @bp.route("/register", methods=["POST"])
-def create_ticket():    
+def create_ticket():
     data = request.json
     try:
+        # Usar la fecha y hora actual del servidor
+        now = datetime.now(pytz.timezone('America/Bogota'))  # Ajustar la zona horaria si es necesario
         new_ticket = Ticket(
-            fecha_creacion=datetime.strptime(data["fecha_creacion"], "%Y-%m-%dT%H:%M:%S.%fZ").date(),
+            fecha_creacion=now,
             tema=data["tema"],
             estado=data["estado"],
             tercero_nombre=data["tercero_nombre"],
@@ -28,6 +33,7 @@ def create_ticket():
             especialista_nombre=data["especialista_nombre"],
             especialista_email=data["especialista_email"],
             descripcion_caso=data["descripcion_caso"],
+            fecha_finalizacion=None  # Asegurar que la fecha de finalización esté en None al crear un nuevo ticket
         )
         db.session.add(new_ticket)
         db.session.commit()
@@ -51,8 +57,6 @@ def create_ticket():
         """
 
         descripcion_images = data.get("descripcion_images", [])
-        
-        print(f"Número de imágenes a enviar: {len(descripcion_images)}")
 
         send_email(
             to_address=[data["especialista_email"], data["tercero_email"]],
@@ -116,6 +120,9 @@ def send_email(to_address, subject, body, images=[]):
         import traceback
         traceback.print_exc()
 
+from flask import jsonify
+from datetime import datetime
+
 @bp.route("/", methods=["GET"])
 def get_tickets():
     tickets = Ticket.query.all()
@@ -123,7 +130,7 @@ def get_tickets():
     for ticket in tickets:
         ticket_info = {
             "id": ticket.id,
-            "fecha_creacion": ticket.fecha_creacion.strftime("%Y-%m-%d"),
+            "fecha_creacion": ticket.fecha_creacion.isoformat() if ticket.fecha_creacion else None,
             "tema": ticket.tema,
             "estado": ticket.estado,
             "tercero_nombre": ticket.tercero_nombre,
@@ -134,12 +141,9 @@ def get_tickets():
             "solucion_caso": ticket.solucion_caso,
             "tiempo_de_respuesta": ticket.tiempo_de_respuesta,
             "actitud": ticket.actitud,
-            "respuesta": ticket.respuesta
+            "respuesta": ticket.respuesta,
+            "fecha_finalizacion": ticket.fecha_finalizacion.isoformat() if ticket.fecha_finalizacion else None
         }
-        if ticket.fecha_finalizacion:
-            ticket_info["fecha_finalizacion"] = ticket.fecha_finalizacion.strftime("%Y-%m-%d")
-        else:
-            ticket_info["fecha_finalizacion"] = None
         tickets_data.append(ticket_info)
     return jsonify(tickets_data)
 
