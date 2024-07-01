@@ -12,7 +12,7 @@ def register():
     username = data.get('username')
     password = data.get('password')
     email = data.get('email')
-    first_name = data.get('first_name') 
+    first_name = data.get('first_name')
     last_name = data.get('last_name')
     existing_user = User.query.filter_by(username=username).first()
     if existing_user:
@@ -35,7 +35,7 @@ def login():
         password_bytes = password.encode('utf-8')
         if bcrypt.checkpw(password_bytes, user.password.encode('utf-8')):
             access_token = create_access_token(identity=user.id)
-            return jsonify({'access_token': access_token, 'user_id': user.id, 'user_email': user.email}, ), 200
+            return jsonify({'access_token': access_token, 'user_id': user.id, 'user_email': user.email}), 200
         else:
             return jsonify({'message': 'Contraseña inválida'}), 401
     else:
@@ -51,8 +51,6 @@ def get_user():
         return jsonify({'email': user.email, 'id': user.id, 'full_name': full_name}), 200
     else:
         return jsonify({'message': 'Usuario no encontrado'}), 404
-
-
 
 @bp.route('/users/username/<username>', methods=['GET'])
 def get_user_by_username(username):
@@ -105,28 +103,22 @@ def get_user_by_last_name(last_name):
         }), 200
     else:
         return jsonify({'message': 'Usuario no encontrado'}), 404
-    
 
-@bp.route('/users/<username>', methods=['PUT'])
-def update_user(username):
-    # Obtener el usuario a actualizar
+@bp.route('/users/username/<username>', methods=['PUT'])
+def update_user_by_username(username):
     user = User.query.filter_by(username=username).first()
 
-    # Verificar si el usuario existe
     if not user:
         return jsonify({'message': 'Usuario no encontrado'}), 404
 
-    # Obtener los datos del cuerpo de la solicitud
     data = request.get_json()
 
-    # Validar y actualizar los campos proporcionados
     new_username = data.get('username', user.username)
     new_password = data.get('password', user.password)
     new_email = data.get('email', user.email)
     new_first_name = data.get('first_name', user.first_name)
     new_last_name = data.get('last_name', user.last_name)
 
-    # Actualizar los datos del usuario en la base de datos
     user.username = new_username
     user.password = bcrypt.hashpw(new_password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
     user.email = new_email
@@ -137,9 +129,39 @@ def update_user(username):
         db.session.commit()
         return jsonify({'message': 'Usuario actualizado exitosamente'}), 200
     except Exception as e:
-        db.session.rollback()  # Revertir cambios en caso de error
+        db.session.rollback()
         return jsonify({'message': f'Error al actualizar el usuario: {str(e)}'}), 500
-    
+
+
+@bp.route('/users/<int:id>', methods=['PUT'])
+@jwt_required()
+def update_user_by_id(id):
+    user = User.query.get(id)
+
+    if not user:
+        return jsonify({'message': 'Usuario no encontrado'}), 404
+
+    data = request.get_json()
+
+    new_username = data.get('username', user.username)
+    new_password = data.get('password', user.password)
+    new_email = data.get('email', user.email)
+    new_first_name = data.get('first_name', user.first_name)
+    new_last_name = data.get('last_name', user.last_name)
+
+    user.username = new_username
+    user.password = bcrypt.hashpw(new_password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+    user.email = new_email
+    user.first_name = new_first_name
+    user.last_name = new_last_name
+
+    try:
+        db.session.commit()
+        return jsonify({'message': 'Usuario actualizado exitosamente'}), 200
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'message': f'Error al actualizar el usuario: {str(e)}'}), 500
+
 @bp.route('/users/<username>', methods=['DELETE'])
 def delete_user(username):
     user = User.query.filter_by(username=username).first()
@@ -149,7 +171,7 @@ def delete_user(username):
         return jsonify({'message': 'Usuario eliminado con éxito'}), 200
     else:
         return jsonify({'message': 'Usuario no encontrado'}), 404
-    
+
 @bp.route('/users/names', methods=['GET'])
 def get_user_names():
     users = User.query.all()
@@ -167,7 +189,7 @@ def register_ticket():
     estado = data.get('estado')
     tercero_nombre = data.get('tercero_nombre')
     especialista_nombre = data.get('especialista_nombre')
-    especialista_id = data.get('especialista_id')  # Recibir el ID del especialista
+    especialista_id = data.get('especialista_id')
     descripcion_caso = data.get('descripcion_caso')
     solucion_caso = data.get('solucion_caso')
 
