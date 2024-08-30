@@ -5,6 +5,10 @@ from flask_cors import CORS
 from flask_jwt_extended import JWTManager
 import secrets
 import string
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 app = Flask(__name__)
 
@@ -17,7 +21,10 @@ secret_key = ''.join(secrets.choice(characters) for _ in range(key_length))
 app.config['JWT_SECRET_KEY'] = secret_key
 
 db = SQLAlchemy(app)
-CORS(app)
+
+# Configure CORS to allow multiple origins
+CORS(app, resources={r"/auth/*": {"origins": ["http://localhost:3000", "https://mintickets.vercel.app"]}})
+
 jwt = JWTManager(app)
 
 from app.models import user_model, topic_model, statu_model, tercero_model, ticket_model
