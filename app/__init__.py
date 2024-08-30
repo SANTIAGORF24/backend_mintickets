@@ -23,7 +23,7 @@ app.config['JWT_SECRET_KEY'] = secret_key
 db = SQLAlchemy(app)
 
 # Configure CORS to allow multiple origins
-CORS(app, resources={r"/auth/*": {"origins": ["http://localhost:3000", "https://mintickets.vercel.app"]}})
+CORS(app, resources={r"/*": {"origins": "*"}})
 
 jwt = JWTManager(app)
 
