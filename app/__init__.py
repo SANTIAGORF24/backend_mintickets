@@ -1,12 +1,15 @@
+import os
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
-from flask_cors import CORS  # Importar CORS
+from flask_cors import CORS
 from flask_jwt_extended import JWTManager
 import secrets
 import string
 
 app = Flask(__name__)
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///users.db'
+
+# Usa la URL de PostgreSQL de Railway almacenada en la variable de entorno
+app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('postgresql://postgres:PSRPtpWqYkZotNbYKRNtUiFoBiiaGsBu@meticulous-empathy.railway.internal:5432/railway')
 
 # Generar una clave secreta para JWT
 key_length = 64
@@ -15,7 +18,7 @@ secret_key = ''.join(secrets.choice(characters) for _ in range(key_length))
 app.config['JWT_SECRET_KEY'] = secret_key
 
 db = SQLAlchemy(app)
-CORS(app)  # Habilitar CORS para toda la aplicación
+CORS(app)
 jwt = JWTManager(app)
 
 from app.models import user_model, topic_model, statu_model, tercero_model, ticket_model
@@ -29,5 +32,3 @@ app.register_blueprint(ticket_routes.bp)
 
 with app.app_context():
     db.create_all()
-
-# Aquí no es necesario agregar nada más relacionado con CORS, ya que se ha habilitado para toda la aplicación con CORS(app)
