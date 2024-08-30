@@ -8,8 +8,8 @@ import string
 
 app = Flask(__name__)
 
-# Usa la URL de PostgreSQL de Railway almacenada en la variable de entorno
-app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('postgresql://postgres:PSRPtpWqYkZotNbYKRNtUiFoBiiaGsBu@meticulous-empathy.railway.internal:5432/railway')
+# Configuración de la URI de PostgreSQL usando la variable de entorno DATABASE_URL
+app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('postgresql://postgres:PSRPtpWqYkZotNbYKRNtUiFoBiiaGsBu@junction.proxy.rlwy.net:38234/railway')
 
 # Generar una clave secreta para JWT
 key_length = 64
