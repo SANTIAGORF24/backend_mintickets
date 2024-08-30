@@ -6,4 +6,3 @@ pytz
 bcrypt
 psycopg2-binary==2.9.7
 python-dotenv
-gunicorn
