@@ -5,3 +5,4 @@ Flask-JWT-Extended
 pytz
 bcrypt
 psycopg2-binary==2.9.7
+freeze
