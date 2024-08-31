@@ -1,3 +1,4 @@
+# En app/__init__.py
 import os
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
@@ -35,6 +36,10 @@ app.register_blueprint(topic_routes.bp)
 app.register_blueprint(statu_routes.bp)
 app.register_blueprint(tercero_routes.bp)
 app.register_blueprint(ticket_routes.bp)
+
+@app.route('/')
+def home():
+    return "Servidor funcionando correctamente"
 
 with app.app_context():
     db.create_all()
