@@ -13,4 +13,4 @@ COPY . .
 EXPOSE 5000
 
 # Define el comando por defecto
-CMD ["gunicorn", "app:app", "--bind", "0.0.0.0:5000"]
+CMD ["gunicorn", "run:app", "--bind", "0.0.0.0:$PORT"]
