@@ -12,10 +12,6 @@ def auth_home():
 
 @bp.route('/register', methods=['POST'])
 
-def auth_home():
-    return jsonify({"message": "register funcionando!"})
-
-
 def register():
     data = request.get_json()
     username = data.get('username')
