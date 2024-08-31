@@ -6,6 +6,10 @@ from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identi
 
 bp = Blueprint('auth', __name__, url_prefix='/auth')
 
+@bp.route('/', methods=['GET'])
+def auth_home():
+    return jsonify({"message": "¡Ruta de autenticación funcionando!"})
+
 @bp.route('/register', methods=['POST'])
 def register():
     data = request.get_json()
