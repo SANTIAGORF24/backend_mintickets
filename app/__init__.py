@@ -36,9 +36,6 @@ app.register_blueprint(statu_routes.bp)
 app.register_blueprint(tercero_routes.bp)
 app.register_blueprint(ticket_routes.bp)
 
-@app.route('/')
-def home():
-    return "Servidor funcionando correctamente"
 
 
 with app.app_context():
