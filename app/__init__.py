@@ -31,7 +31,7 @@ app.config['JWT_ACCESS_TOKEN_EXPIRES'] = timedelta(days=7)  # Ajusta la duració
 db = SQLAlchemy(app)
 
 # Configure CORS to allow multiple origins
-CORS(app, resources={r"/*": {"origins": "*"}})
+CORS(app, resources={r"/*": {"origins": ["https://mintickets.up.railway.app"]}})
 
 jwt = JWTManager(app)
 
