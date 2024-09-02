@@ -23,7 +23,12 @@ app.config['JWT_SECRET_KEY'] = secret_key
 
 db = SQLAlchemy(app)
 
-CORS(app, resources={r"/*": {"origins": ["http://localhost:3000", "https://mintickets.vercel.app/ticket", "https://mintickets.vercel.app"], "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"]}})
+CORS(app, resources={r"/*": {
+    "origins": ["http://localhost:3000", "https://tu-frontend-production-url.com"],
+    "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    "allow_headers": ["Content-Type", "Authorization"]
+}})
+
 
 jwt = JWTManager(app)
 
