@@ -7,6 +7,11 @@ from flask_jwt_extended import JWTManager
 import secrets
 import string
 from dotenv import load_dotenv
+from datetime import timedelta
+
+# Configuración para que el token expire en 7 días
+JWT_ACCESS_TOKEN_EXPIRES = timedelta(days=7)
+
 
 # Load environment variables from .env file
 load_dotenv()
@@ -20,6 +25,8 @@ key_length = 64
 characters = string.ascii_letters + string.digits + string.punctuation
 secret_key = ''.join(secrets.choice(characters) for _ in range(key_length))
 app.config['JWT_SECRET_KEY'] = secret_key
+app.config['JWT_ACCESS_TOKEN_EXPIRES'] = timedelta(days=7)  # Ajusta la duración aquí
+
 
 db = SQLAlchemy(app)
 
