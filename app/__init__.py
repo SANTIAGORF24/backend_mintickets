@@ -1,4 +1,3 @@
-# En app/__init__.py
 import os
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
@@ -7,6 +6,7 @@ from flask_jwt_extended import JWTManager
 import secrets
 import string
 from dotenv import load_dotenv
+from flask_talisman import Talisman
 
 # Load environment variables from .env file
 load_dotenv()
@@ -30,6 +30,9 @@ CORS(app, resources={r"/*": {
 }})
 
 jwt = JWTManager(app)
+
+# Initialize Flask-Talisman
+t = Talisman(app, content_security_policy=None, force_https=True)
 
 from app.models import user_model, topic_model, statu_model, tercero_model, ticket_model
 from app.routes import auth_routes, topic_routes, statu_routes, tercero_routes, ticket_routes
