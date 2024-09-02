@@ -28,6 +28,8 @@ CORS(app, resources={r"/*": {
     "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     "allow_headers": ["Content-Type", "Authorization"]
 }})
+CORS(app, resources={r"/tickets/*": {"origins": "https://mintickets.vercel.app"}})
+
 
 
 jwt = JWTManager(app)
