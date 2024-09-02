@@ -9,8 +9,6 @@ from email.mime.image import MIMEImage
 import base64
 from datetime import datetime, timedelta
 import pytz
-from flask_cors import CORS
-import app 
 
 
 SMTP_SERVER = 'smtp.office365.com'
@@ -19,7 +17,6 @@ SMTP_USERNAME = 'soportetics@mindeporte.gov.co'
 SMTP_PASSWORD = '#B0g0t0@2024*'
 
 bp = Blueprint("tickets", __name__, url_prefix="/tickets")
-CORS(app, resources={r"/tickets/*": {"origins": "https://mintickets.vercel.app"}})
 
 
 @bp.route("/register", methods=["POST"])

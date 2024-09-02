@@ -2,12 +2,8 @@ from flask import Blueprint, jsonify, request
 from app.models.statu_model import Statu
 from app import db
 from flask_jwt_extended import jwt_required, get_jwt_identity
-from flask_cors import CORS
-
 
 bp = Blueprint('status', __name__, url_prefix='/status')
-CORS(bp)
-
 
 @bp.route('', methods=['GET'])
 def get_status():

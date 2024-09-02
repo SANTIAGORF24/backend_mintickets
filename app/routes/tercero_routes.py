@@ -2,12 +2,8 @@ from flask import Blueprint, jsonify, request
 from app.models.tercero_model import Tercero
 from app import db
 from flask_jwt_extended import jwt_required, get_jwt_identity
-from flask_cors import CORS
-
 
 bp = Blueprint('terceros', __name__, url_prefix='/terceros')
-CORS(bp)
-
 
 @bp.route('', methods=['GET'])
 def get_terceros():
