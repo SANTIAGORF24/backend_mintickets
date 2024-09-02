@@ -2,11 +2,11 @@ from flask import Blueprint, jsonify, request
 from app.models.topic_model import Topic
 from app import db
 from flask_jwt_extended import jwt_required, get_jwt_identity
-from flask_cors import CORS
+
 
 
 bp = Blueprint('topics', __name__, url_prefix='/topics')
-CORS(bp)
+
 
 
 @bp.route('', methods=['GET'])

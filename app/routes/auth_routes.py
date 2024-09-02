@@ -3,11 +3,11 @@ from flask import Blueprint, jsonify, request
 from app.models.user_model import User
 from app import db
 from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity
-from flask_cors import CORS
+
 
 
 bp = Blueprint('auth', __name__, url_prefix='/auth')
-CORS(bp)
+
 
 
 @bp.route('/', methods=['GET'])
