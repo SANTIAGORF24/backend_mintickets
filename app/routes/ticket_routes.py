@@ -14,8 +14,8 @@ from flask_cors import CORS
 
 SMTP_SERVER = 'smtp.office365.com'
 SMTP_PORT = 587
-SMTP_USERNAME = 'soportetics@mindeporte.gov.co'
-SMTP_PASSWORD = '#B0g0t0@2024*'
+SMTP_USERNAME = 'mintickets@mindeporte.gov.co'
+SMTP_PASSWORD = '#B0g0t0@2024*+'
 
 bp = Blueprint("tickets", __name__, url_prefix="/tickets")
 CORS(bp)
