@@ -19,7 +19,7 @@ load_dotenv()
 app = Flask(__name__)
 
 # Configuración de la URI de PostgreSQL usando la variable de entorno DATABASE_URL
-app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'postgresql://postgres:PSRPtpWqYkZotNbYKRNtUiFoBiiaGsBu@junction.proxy.rlwy.net:38234/railway')
+app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'postgresql://postgres:WxXJeimAMPvJnBcgLlAGmSBJDnfOoeWc@junction.proxy.rlwy.net:48711/railway')
 # Generar una clave secreta para JWT
 key_length = 64
 characters = string.ascii_letters + string.digits + string.punctuation
