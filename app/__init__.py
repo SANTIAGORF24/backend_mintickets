@@ -27,6 +27,8 @@ db = SQLAlchemy(app)
 # Configure CORS to allow multiple origins
 CORS(app, resources={r"/*": {"origins": "*"}})
 
+
+
 jwt = JWTManager(app)
 
 from app.models import user_model, topic_model, statu_model, tercero_model, ticket_model
