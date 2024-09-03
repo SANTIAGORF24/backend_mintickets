@@ -3,31 +3,18 @@ from flask import Blueprint, jsonify, request
 from app.models.user_model import User
 from app import db
 from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity
-from flask import make_response
 
 
 
 bp = Blueprint('auth', __name__, url_prefix='/auth')
 
-def cors_headers(response):
-    response.headers.add('Access-Control-Allow-Origin', '*')
-    response.headers.add('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS')
-    response.headers.add('Access-Control-Allow-Headers', 'Content-Type, Authorization')
-    return response
 
 
 @bp.route('/', methods=['GET'])
 def auth_home():
     return jsonify({"message": "¡Ruta de autenticación funcionando!"})
 
-@bp.route('/register', methods=['POST', 'OPTIONS'])
-def register():
-    if request.method == 'OPTIONS':
-        response = make_response()
-        response.headers.add("Access-Control-Allow-Origin", "*")
-        response.headers.add("Access-Control-Allow-Headers", "Content-Type, Authorization")
-        response.headers.add("Access-Control-Allow-Methods", "POST")
-        return response
+@bp.route('/register', methods=['POST'])
 
 def register():
     data = request.get_json()
