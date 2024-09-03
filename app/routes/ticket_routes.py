@@ -10,7 +10,7 @@ import base64
 from datetime import datetime, timedelta
 import pytz
 
-from flask_cors import CORS
+
 
 SMTP_SERVER = 'smtp.office365.com'
 SMTP_PORT = 587
@@ -18,15 +18,6 @@ SMTP_USERNAME = 'mintickets@mindeporte.gov.co'
 SMTP_PASSWORD = '#B0g0t0@2024*+'
 
 bp = Blueprint("tickets", __name__, url_prefix="/tickets")
-CORS(bp, resources={r"/*": {"origins": ["https://mintickets.vercel.app", "http://localhost:3000"]}}, supports_credentials=True)
-
-@bp.after_request
-def add_cors_headers(response):
-    response.headers['Access-Control-Allow-Origin'] = 'https://mintickets.vercel.app'
-    response.headers['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS, PUT, PATCH, DELETE'
-    response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'
-    response.headers['Access-Control-Allow-Credentials'] = 'true'
-    return response
 
 
 @bp.route("/register", methods=["POST"])
