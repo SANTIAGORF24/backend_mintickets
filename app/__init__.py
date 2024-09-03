@@ -1,4 +1,3 @@
-# En app/__init__.py
 import os
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
@@ -9,24 +8,17 @@ import string
 from dotenv import load_dotenv
 from datetime import timedelta
 
-# Configuración para que el token expire en 7 días
-JWT_ACCESS_TOKEN_EXPIRES = timedelta(days=7)
-
-
-# Load environment variables from .env file
-load_dotenv()
-
 app = Flask(__name__)
 
 # Configuración de la URI de PostgreSQL usando la variable de entorno DATABASE_URL
-app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'postgresql://postgres:PSRPtpWqYkZotNbYKRNtUiFoBiiaGsBu@junction.proxy.rlwy.net:38234/railway')
+# Cambiado a la nueva URL proporcionada
+app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'postgres://default:SMfsCEoQNW24@ep-falling-butterfly-a4tb3gq8.us-east-1.aws.neon.tech:5432/verceldb?sslmode=require')
+
 # Generar una clave secreta para JWT
 key_length = 64
 characters = string.ascii_letters + string.digits + string.punctuation
 secret_key = ''.join(secrets.choice(characters) for _ in range(key_length))
 app.config['JWT_SECRET_KEY'] = secret_key
-app.config['JWT_ACCESS_TOKEN_EXPIRES'] = timedelta(days=7)  # Ajusta la duración aquí
-
 
 db = SQLAlchemy(app)
 
