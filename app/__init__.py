@@ -30,8 +30,16 @@ app.config['JWT_ACCESS_TOKEN_EXPIRES'] = timedelta(days=7)  # Ajusta la duració
 
 db = SQLAlchemy(app)
 
-# Configure CORS to allow multiple origins
-CORS(app, resources={r"/*": {"origins": "*"}})
+# Configure CORS to allow all methods and the specified origins
+CORS(app, resources={
+    r"/*": {
+        "origins": ["https://mintickets.vercel.app", "http://localhost:3000"],
+        "methods": ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+        "allow_headers": ["Authorization", "Content-Type", "X-Requested-With"],
+        "supports_credentials": True
+    }
+})
+
 
 jwt = JWTManager(app)
 
