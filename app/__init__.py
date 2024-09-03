@@ -19,7 +19,7 @@ load_dotenv()
 app = Flask(__name__)
 
 # Configuración de la URI de PostgreSQL usando la variable de entorno DATABASE_URL
-app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'postgresql://postgres:PSRPtpWqYkZotNbYKRNtUiFoBiiaGsBu@junction.proxy.rlwy.net:38234/railway')
+app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'postgresql://mintikets_owner:JPN3Ki8mSZTl@ep-snowy-smoke-a5ir7a22.us-east-2.aws.neon.tech/mintikets?sslmode=require')
 # Generar una clave secreta para JWT
 key_length = 64
 characters = string.ascii_letters + string.digits + string.punctuation
@@ -30,16 +30,8 @@ app.config['JWT_ACCESS_TOKEN_EXPIRES'] = timedelta(days=7)  # Ajusta la duració
 
 db = SQLAlchemy(app)
 
-CORS(app, resources={
-    r"/*": {
-        "origins": ["https://mintickets.vercel.app", "http://localhost:3000"],
-        "methods": ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
-        "allow_headers": ["Authorization", "Content-Type", "X-Requested-With"],
-        "supports_credentials": True,
-        "expose_headers": ["Content-Type", "X-CSRFToken"]
-    }
-})
-
+# Configure CORS to allow multiple origins
+CORS(app, resources={r"/*": {"origins": "*"}})
 
 jwt = JWTManager(app)
 
