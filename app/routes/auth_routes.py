@@ -10,10 +10,6 @@ bp = Blueprint('auth', __name__, url_prefix='/auth')
 
 
 
-@bp.route('/', methods=['GET'])
-def auth_home():
-    return jsonify({"message": "¡Ruta de autenticación funcionando!"})
-
 @bp.route('/register', methods=['POST'])
 
 def register():
