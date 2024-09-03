@@ -9,7 +9,11 @@ import string
 from dotenv import load_dotenv
 from datetime import timedelta
 
+# Configuración para que el token expire en 7 días
+JWT_ACCESS_TOKEN_EXPIRES = timedelta(days=7)
 
+
+# Load environment variables from .env file
 load_dotenv()
 
 app = Flask(__name__)
@@ -21,12 +25,13 @@ key_length = 64
 characters = string.ascii_letters + string.digits + string.punctuation
 secret_key = ''.join(secrets.choice(characters) for _ in range(key_length))
 app.config['JWT_SECRET_KEY'] = secret_key
+app.config['JWT_ACCESS_TOKEN_EXPIRES'] = timedelta(days=7)  # Ajusta la duración aquí
 
 
 db = SQLAlchemy(app)
 
-# Configure CORS to allow multiple origins
-CORS(app, resources={r"/*": {"origins": "*"}})
+# Configura CORS para permitir solicitudes desde tu dominio de producción y localhost
+CORS(app, resources={r"/*": {"origins": ["https://mintickets.vercel.app", "http://localhost:3000", "http://127.0.0.1:3000"]}})
 
 jwt = JWTManager(app)
 

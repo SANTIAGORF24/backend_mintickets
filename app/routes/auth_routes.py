@@ -8,6 +8,11 @@ from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identi
 
 bp = Blueprint('auth', __name__, url_prefix='/auth')
 
+def cors_headers(response):
+    response.headers.add('Access-Control-Allow-Origin', '*')
+    response.headers.add('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS')
+    response.headers.add('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+    return response
 
 
 @bp.route('/', methods=['GET'])
