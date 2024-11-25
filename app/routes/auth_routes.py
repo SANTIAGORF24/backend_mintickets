@@ -4,14 +4,9 @@ from app.models.user_model import User
 from app import db
 from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity
 
-
-
 bp = Blueprint('auth', __name__, url_prefix='/auth')
 
-
-
 @bp.route('/register', methods=['POST'])
-
 def register():
     data = request.get_json()
     username = data.get('username')
@@ -36,11 +31,16 @@ def login():
     username = data.get('username')
     password = data.get('password')
     user = User.query.filter_by(username=username).first()
+    
     if user:
         password_bytes = password.encode('utf-8')
         if bcrypt.checkpw(password_bytes, user.password.encode('utf-8')):
-            access_token = create_access_token(identity=user.id)
-            return jsonify({'access_token': access_token, 'user_id': user.id, 'user_email': user.email}), 200
+            access_token = create_access_token(identity=str(user.id))
+            return jsonify({
+                'access_token': access_token,
+                'user_id': user.id,
+                'user_email': user.email
+            }), 200
         else:
             return jsonify({'message': 'Contraseña inválida'}), 401
     else:
@@ -49,13 +49,25 @@ def login():
 @bp.route('/user', methods=['GET'])
 @jwt_required()
 def get_user():
-    user_id = get_jwt_identity()
-    user = User.query.get(user_id)
-    if user:
-        full_name = f"{user.first_name} {user.last_name}"
-        return jsonify({'email': user.email, 'id': user.id, 'full_name': full_name}), 200
-    else:
-        return jsonify({'message': 'Usuario no encontrado'}), 404
+    try:
+        user_id = get_jwt_identity()
+        print(f"Retrieved user_id from token: {user_id}")  # Debug log
+        
+        user = User.query.get(user_id)
+        if user:
+            full_name = f"{user.first_name} {user.last_name}"
+            return jsonify({
+                'email': user.email,
+                'id': user.id,
+                'full_name': full_name
+            }), 200
+        else:
+            print(f"No user found for id: {user_id}")  # Debug log
+            return jsonify({'message': 'Usuario no encontrado'}), 404
+            
+    except Exception as e:
+        print(f"Error in get_user: {str(e)}")  # Debug log
+        return jsonify({'message': 'Error interno del servidor'}), 500
 
 @bp.route('/users/username/<username>', methods=['GET'])
 def get_user_by_username(username):
