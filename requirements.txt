@@ -4,6 +4,6 @@ Flask-CORS
 Flask-JWT-Extended
 pytz
 bcrypt
-psycopg2-binary
 python-dotenv
 gunicorn
+ldap3

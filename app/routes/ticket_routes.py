@@ -9,13 +9,19 @@ from email.mime.image import MIMEImage
 import base64
 from datetime import datetime, timedelta
 import pytz
+import os
+from dotenv import load_dotenv
 
+load_dotenv()  # Cargar variables de entorno
 
+# Ejemplos de uso
+SMTP_SERVER = os.getenv('SMTP_SERVER')
+SMTP_PORT = int(os.getenv('SMTP_PORT'))
+SMTP_USERNAME = os.getenv('SMTP_USERNAME')
+SMTP_PASSWORD = os.getenv('SMTP_PASSWORD')
 
-SMTP_SERVER = 'smtp.office365.com'
-SMTP_PORT = 587
-SMTP_USERNAME = 'mintickets@mindeporte.gov.co'
-SMTP_PASSWORD = '#B0g0t0@2024*+'
+FRONTEND_BASE_URL = os.getenv('FRONTEND_BASE_URL')
+
 
 bp = Blueprint("tickets", __name__, url_prefix="/tickets")
 
@@ -45,8 +51,7 @@ def create_ticket():
         email_body = f"""
         <h2>Ticket creado para {data['tercero_nombre']}</h2>
         <p>Cordial saludo {data['tercero_nombre']},</p>
-        <p>Para consultar el estado de su ticket ingrese a <a href="http://localhost:3000/historial">http://localhost:3000/historial</a> y digite el ID del ticket</p>
-        <p>Se ha creado un nuevo ticket con la siguiente descripción:</p>
+        <p>Para consultar el estado de su ticket ingrese a <a href="{os.getenv('FRONTEND_BASE_URL')}/historial">{os.getenv('FRONTEND_BASE_URL')}/historial</a> y digite el ID del ticket</p>Se ha creado un nuevo ticket con la siguiente descripción:</p>
         <ul>
             <li>ID de ticket: {ticket_id}</li>
             <li>Tema: {data['tema']}</li>
@@ -113,15 +118,15 @@ def send_email(to_address, subject, body, images=[]):
         server = smtplib.SMTP(SMTP_SERVER, SMTP_PORT)
         server.starttls()
         server.login(SMTP_USERNAME, SMTP_PASSWORD)
-        text = msg.as_string()
-        server.sendmail(SMTP_USERNAME, to_address, text)
+        
+        server.sendmail(SMTP_USERNAME, to_address, msg.as_string())
+        
         server.quit()
         print("Correo enviado exitosamente")
     except Exception as e:
-        print(f"Error enviando correo: {str(e)}")
+        print(f"Error completo enviando correo: {str(e)}")
         import traceback
         traceback.print_exc()
-
 from flask import jsonify
 from datetime import datetime
 
@@ -200,7 +205,8 @@ def finalize_ticket(id):
         db.session.commit()
 
         # Generar enlace de encuesta
-        encuestaLink = f"http://localhost:3000/encuesta?id={ticket.id}"
+        # En lugar de http://localhost:3000/historial
+        encuestaLink = f"{os.getenv('FRONTEND_BASE_URL')}/encuesta?id={ticket.id}"
 
         # Preparar el cuerpo del correo electrónico en HTML
         email_body = f"""
