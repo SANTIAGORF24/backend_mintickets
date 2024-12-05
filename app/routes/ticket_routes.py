@@ -336,13 +336,49 @@ def update_ticket(id):
         ticket.descripcion_caso = data.get("descripcion_caso", ticket.descripcion_caso)
         ticket.solucion_caso = data.get("solucion_caso", ticket.solucion_caso)
         
+        # Procesar archivos adjuntos de respuesta
+        attachments = data.get("attachments", [])
+        for attachment in attachments:
+            try:
+                # Validar que el contenido base64 esté presente
+                if not attachment.get('base64Content'):
+                    continue  # Saltar archivos sin contenido
+
+                # Extraer base64 real (remover prefijo data:image/png;base64, si existe)
+                base64_content = attachment['base64Content'].split(',')[-1]
+                
+                # Decodificar contenido
+                file_content = base64.b64decode(base64_content)
+                
+                # Validar tamaño del archivo (por ejemplo, máximo 10MB)
+                max_file_size = 10 * 1024 * 1024  # 10 MB
+                if len(file_content) > max_file_size:
+                    return jsonify({
+                        "error": f"Archivo {attachment.get('fileName', 'Sin nombre')} excede el tamaño máximo de 10MB"
+                    }), 400
+
+                # Crear registro de archivo adjunto en la tabla de respuestas
+                ticket_attachment = TicketAttachmentRespuesta(
+                    ticket_id=ticket.id,
+                    file_name=attachment.get('fileName', f'archivo_{uuid.uuid4()}'),
+                    file_type=attachment.get('fileType', 'application/octet-stream'),
+                    file_content=file_content,
+                    is_description_file=False  # Esto es un archivo de respuesta
+                )
+                
+                db.session.add(ticket_attachment)
+
+            except Exception as attachment_error:
+                # Manejar errores específicos de archivos individuales
+                print(f"Error procesando archivo de respuesta: {attachment_error}")
+                # Continuar con los siguientes archivos en lugar de fallar completamente
+        
         db.session.commit()
         return jsonify({"message": "Ticket actualizado correctamente"}), 200
     except Exception as e:
         db.session.rollback()
         print(f"Error al actualizar el ticket: {str(e)}")  # Verifica el error
         return jsonify({"error": str(e)}), 500
-
 
 @bp.route("/<int:id>/finalize", methods=["PUT"])
 def finalize_ticket(id):
@@ -358,10 +394,57 @@ def finalize_ticket(id):
         ticket.especialista_email = data.get("especialista_email", ticket.especialista_email)  # Actualizar el correo del especialista
         ticket.descripcion_caso = data.get("descripcion_caso", ticket.descripcion_caso)
         ticket.solucion_caso = data.get("solucion_caso", ticket.solucion_caso)
-        db.session.commit()
+
+        # Procesar archivos adjuntos de respuesta
+        solucion_images = data.get("solucion_images", [])
+        for attachment in solucion_images:
+            try:
+                # Validar que el contenido base64 esté presente
+                if not attachment.get('base64Content'):
+                    continue  # Saltar archivos sin contenido
+
+                # Extraer base64 real (remover prefijo data:image/png;base64, si existe)
+                base64_content = attachment['base64Content'].split(',')[-1]
+                
+                # Decodificar contenido
+                file_content = base64.b64decode(base64_content)
+                
+                # Validar tamaño del archivo (por ejemplo, máximo 10MB)
+                max_file_size = 10 * 1024 * 1024  # 10 MB
+                if len(file_content) > max_file_size:
+                    return jsonify({
+                        "error": f"Archivo {attachment.get('fileName', 'Sin nombre')} excede el tamaño máximo de 10MB"
+                    }), 400
+
+                # Crear registro de archivo adjunto en la tabla de respuestas
+                ticket_attachment = TicketAttachmentRespuesta(
+                    ticket_id=ticket.id,
+                    file_name=attachment.get('fileName', f'archivo_{uuid.uuid4()}'),
+                    file_type=attachment.get('fileType', 'application/octet-stream'),
+                    file_content=file_content,
+                    is_description_file=False  # Esto es un archivo de respuesta
+                )
+                
+                db.session.add(ticket_attachment)
+
+            except Exception as attachment_error:
+                # Manejar errores específicos de archivos individuales
+                print(f"Error procesando archivo de solución: {attachment_error}")
+                # Continuar con los siguientes archivos en lugar de fallar completamente
+
+        # Recuperar todos los archivos de respuesta para este ticket
+        respuesta_attachments = TicketAttachmentRespuesta.query.filter_by(ticket_id=ticket.id).all()
+        
+        # Convertir archivos de respuesta a formato para envío de correo
+        respuesta_email_attachments = [
+            {
+                'fileName': attachment.file_name,
+                'fileType': attachment.file_type,
+                'base64Content': base64.b64encode(attachment.file_content).decode('utf-8')
+            } for attachment in respuesta_attachments
+        ]
 
         # Generar enlace de encuesta
-        # En lugar de http://localhost:3000/historial
         encuestaLink = f"{os.getenv('FRONTEND_BASE_URL')}/encuesta?id={ticket.id}"
 
         # Preparar el cuerpo del correo electrónico en HTML
@@ -385,16 +468,19 @@ def finalize_ticket(id):
         </html>
         """
 
-        solucion_images = data.get("solucion_images", [])
+        # Combinar archivos de respuesta y archivos de imagen de solución
+        all_attachments = respuesta_email_attachments + solucion_images
 
-        # Enviar correo electrónico con imágenes adjuntas
+        # Enviar correo electrónico con imágenes y archivos adjuntos
         send_email(
             to_address=[ticket.tercero_email],
             subject=f"Solución ticket de {ticket.tercero_nombre}",
             body=email_body,
-            images=solucion_images
+            images=solucion_images,
+            attachments=respuesta_email_attachments
         )
 
+        db.session.commit()
         return jsonify({"message": "Ticket finalizado y correo enviado correctamente"}), 200
     except Exception as e:
         db.session.rollback()
@@ -402,8 +488,7 @@ def finalize_ticket(id):
         import traceback
         traceback.print_exc()
         return jsonify({"error": str(e)}), 500
-
-
+    
 @bp.route("/<int:id>", methods=["GET"])
 def get_ticket(id):
     try:
@@ -473,7 +558,7 @@ def get_ticket_attachments(ticket_id):
                 "id": attachment.id,
                 "file_name": attachment.file_name,
                 "file_type": attachment.file_type,
-                "is_description_file": attachment.is_description_file
+                "is_description_file": True  # Explicitly set to True for description files
             })
         
         # Process response attachments
@@ -482,13 +567,14 @@ def get_ticket_attachments(ticket_id):
                 "id": attachment.id,
                 "file_name": attachment.file_name,
                 "file_type": attachment.file_type,
-                "is_description_file": attachment.is_description_file
+                "is_description_file": False  # Explicitly set to False for response files
             })
         
         return jsonify(attachments_data), 200
     
     except Exception as e:
         return jsonify({"error": str(e)}), 404
+
 
 @bp.route("/attachment/<int:attachment_id>", methods=["GET"])
 def download_attachment(attachment_id):
@@ -500,10 +586,12 @@ def download_attachment(attachment_id):
     try:
         # First try to find in description attachments
         attachment = TicketAttachmentDescripcion.query.get(attachment_id)
+        attachment_type = "description"
         
         # If not found, try response attachments
         if not attachment:
             attachment = TicketAttachmentRespuesta.query.get(attachment_id)
+            attachment_type = "response"
         
         # If still not found, return 404
         if not attachment:
