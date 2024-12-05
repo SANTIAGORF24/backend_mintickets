@@ -7,6 +7,8 @@ import secrets
 import string
 from dotenv import load_dotenv
 from datetime import timedelta
+from flask_migrate import Migrate
+
 
 # Cargar variables de entorno
 load_dotenv()
@@ -16,6 +18,8 @@ app = Flask(__name__)
 # Database Configuration
 app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URI', 'sqlite:///users.db')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
+
 
 # JWT Secret Key Configuration
 JWT_SECRET_KEY = os.getenv('JWT_SECRET_KEY')
@@ -44,8 +48,12 @@ CORS(app, resources={
 })
 
 # Initialize extensions
+# Initialize extensions
 db = SQLAlchemy(app)
 jwt = JWTManager(app)
+
+# Initialize Flask-Migrate
+migrate = Migrate(app, db)
 
 # Import and register blueprints
 from app.models import user_model, topic_model, statu_model, tercero_model, ticket_model
