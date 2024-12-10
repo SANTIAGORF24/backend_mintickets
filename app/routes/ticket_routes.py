@@ -21,6 +21,7 @@ from email.mime.image import MIMEImage
 from email.mime.base import MIMEBase
 from email import encoders
 from email.mime.application import MIMEApplication
+import traceback
 
 
 load_dotenv()  # Cargar variables de entorno
@@ -71,6 +72,61 @@ def create_ticket():
         db.session.add(new_ticket)
         db.session.flush()  # Esto poblará el ID sin hacer commit aún
 
+        def sanitize_filename(filename):
+            """
+            Limpia y reduce el nombre del archivo
+            - Elimina caracteres no válidos
+            - Limita la longitud
+            - Usa un UUID si el nombre es problemático
+            """
+            import re
+            import uuid
+            
+            # Eliminar caracteres no válidos
+            filename = re.sub(r'[<>:"/\\|?*]', '', filename)
+            
+            # Limitar longitud
+            max_length = 255
+            if len(filename) > max_length:
+                # Tomar los primeros caracteres y añadir extensión
+                name, ext = os.path.splitext(filename)
+                filename = f"{name[:max_length-len(ext)]}{ext}"
+            
+            # Si el nombre sigue siendo problemático, usar UUID
+            if not filename or len(filename) == 0:
+                filename = f"{uuid.uuid4()}.png"
+            
+            return filename
+
+        def get_safe_file_path(base_path, ticket_id, filename):
+            """
+            Genera una ruta de archivo segura con longitud limitada
+            """
+            ticket_folder = os.path.join(base_path, str(ticket_id))
+            descripcion_folder = os.path.join(ticket_folder, "Anexos_Descripcion")
+            
+            # Crear carpetas si no existen
+            os.makedirs(descripcion_folder, exist_ok=True)
+            
+            # Intentar varias estrategias de nombrado
+            attempts = [
+                os.path.join(descripcion_folder, filename),
+                os.path.join(descripcion_folder, f"{uuid.uuid4()}_{filename}"),
+                os.path.join(descripcion_folder, f"{uuid.uuid4()}.png")
+            ]
+            
+            for file_path in attempts:
+                try:
+                    # Intentar crear un archivo temporal para verificar la ruta
+                    with open(file_path, 'wb') as f:
+                        f.write(b'test')
+                    os.remove(file_path)  # Eliminar el archivo de prueba
+                    return file_path
+                except (OSError, IOError):
+                    continue
+            
+            raise ValueError("No se pudo crear un archivo de imagen válido")
+
         # Crear las carpetas para los anexos
         ticket_folder = os.path.join(UPLOAD_PATH, str(new_ticket.id))
         descripcion_folder = os.path.join(ticket_folder, "Anexos_Descripcion")
@@ -82,6 +138,7 @@ def create_ticket():
 
         # Procesar archivos adjuntos
         attachments = data.get("attachments", [])
+        processed_attachments = []
         for attachment in attachments:
             try:
                 if not attachment.get('base64Content'):
@@ -100,27 +157,37 @@ def create_ticket():
                         "error": f"Archivo {attachment.get('fileName', 'Sin nombre')} excede el tamaño máximo de 10MB"
                     }), 400
 
-                # Guardar el archivo físicamente en la carpeta de descripcion
-                file_name = attachment.get('fileName', f'archivo_{uuid.uuid4()}')
-                file_path = os.path.join(descripcion_folder, file_name)
+                # Sanitizar y obtener nombre de archivo seguro
+                file_name = sanitize_filename(attachment.get('fileName', f'archivo_{uuid.uuid4()}'))
 
-                # Guardar el archivo en el servidor
-                with open(file_path, 'wb') as f:
-                    f.write(file_content)
+                # Obtener ruta de archivo segura
+                try:
+                    file_path = get_safe_file_path(UPLOAD_PATH, new_ticket.id, file_name)
+                    
+                    # Guardar el archivo en el servidor
+                    with open(file_path, 'wb') as f:
+                        f.write(file_content)
 
-                # Crear registro de archivo adjunto
-                ticket_attachment = TicketAttachmentDescripcion(
-                    ticket_id=new_ticket.id,
-                    file_name=file_name,
-                    file_type=attachment.get('fileType', 'application/octet-stream'),
-                    file_content=file_content,  # Si es necesario almacenar el archivo, puedes hacerlo
-                    is_description_file=True
-                )
-                
-                db.session.add(ticket_attachment)
+                    # Crear registro de archivo adjunto
+                    ticket_attachment = TicketAttachmentDescripcion(
+                        ticket_id=new_ticket.id,
+                        file_name=os.path.basename(file_path),
+                        file_type=attachment.get('fileType', 'application/octet-stream'),
+                        file_content=file_content,  # Si es necesario almacenar el archivo, puedes hacerlo
+                        is_description_file=True
+                    )
+                    
+                    db.session.add(ticket_attachment)
+                    processed_attachments.append(attachment)
+
+                except ValueError as path_error:
+                    print(f"Error de ruta al procesar archivo: {path_error}")
+                    # Puedes manejar este error según tus necesidades
+                    continue
 
             except Exception as attachment_error:
                 print(f"Error procesando archivo: {attachment_error}")
+                print(traceback.format_exc())  # Imprimir traza completa
         
         # Enviar correo electrónico de notificación
         frontend_url = os.getenv('FRONTEND_BASE_URL')
@@ -145,8 +212,8 @@ def create_ticket():
                 to_address=[data["especialista_email"], data["tercero_email"]],
                 subject=f"Nuevo Ticket Creado para {data['tercero_nombre']}",
                 body=email_body,
-                images=[attachment['base64Content'] for attachment in attachments if attachment.get('fileType', '').startswith('image/')], 
-                attachments=[attachment for attachment in attachments if not attachment.get('fileType', '').startswith('image/')]
+                images=[attachment['base64Content'] for attachment in processed_attachments if attachment.get('fileType', '').startswith('image/')], 
+                attachments=[attachment for attachment in processed_attachments if not attachment.get('fileType', '').startswith('image/')]
             )
         except Exception as email_error:
             print(f"Error enviando correo electrónico: {email_error}")
@@ -161,6 +228,7 @@ def create_ticket():
     except Exception as e:
         db.session.rollback()
         print(f"Error al crear el ticket: {str(e)}")
+        print(traceback.format_exc())  # Imprimir traza completa del error
         return jsonify({
             "error": "Error interno al procesar el ticket", 
             "details": str(e)
@@ -209,11 +277,14 @@ def send_email(to_address, subject, body, images=[], attachments=[]):
         'application/vnd.openxmlformats-officedocument.presentationml.presentation': 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
         'application/vnd.ms-excel': 'application/vnd.ms-excel',  # Archivos .xls
         'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',  # Archivos .xlsx
+        'application/msword': 'application/msword',  # Archivos .doc
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',  # Archivos .docx
         'video/mp4': 'video/mp4',
         'image/jpeg': 'image/jpeg',
         'image/png': 'image/png',
         'image/gif': 'image/gif'
 }
+
 
 
     # Adjuntar archivos
@@ -379,30 +450,58 @@ def update_ticket(id):
 
         # Procesar archivos adjuntos de respuesta
         attachments = data.get("attachments", [])
+        processed_attachments = []
         for attachment in attachments:
-            if not attachment.get('base64Content'):
-                continue  # Saltar archivos sin contenido
+            try:
+                if not attachment.get('base64Content'):
+                    continue  # Saltar archivos sin contenido
 
-            base64_content = attachment['base64Content'].split(',')[-1]
-            file_content = base64.b64decode(base64_content)
-            
-            # Guardar el archivo en la carpeta Anexos_Solucion
-            file_name = attachment.get('fileName', f'archivo_{uuid.uuid4()}')
-            file_path = os.path.join(solucion_folder, file_name)
+                # Extraer base64 real (remover prefijo data:image/png;base64, si existe)
+                base64_content = attachment['base64Content'].split(',')[-1]
+                
+                # Decodificar contenido
+                file_content = base64.b64decode(base64_content)
+                
+                # Validar tamaño del archivo (por ejemplo, máximo 10MB)
+                max_file_size = 10 * 1024 * 1024  # 10 MB
+                if len(file_content) > max_file_size:
+                    print(f"Archivo {attachment.get('fileName', 'Sin nombre')} excede el tamaño máximo de 10MB")
+                    continue
 
-            # Guardar el archivo en el servidor
-            with open(file_path, 'wb') as f:
-                f.write(file_content)
+                # Sanitizar y obtener nombre de archivo seguro
+                file_name = sanitize_filename(attachment.get('fileName', f'archivo_{uuid.uuid4()}'))
 
-            # Crear registro de archivo adjunto de solución
-            ticket_attachment = TicketAttachmentRespuesta(
-                ticket_id=ticket.id,
-                file_name=file_name,
-                file_type=attachment.get('fileType', 'application/octet-stream'),
-                file_content=file_content,
-                is_description_file=False  # Es un archivo de solución
-            )
-            db.session.add(ticket_attachment)
+                # Obtener ruta de archivo segura
+                try:
+                    file_path = get_safe_file_path(UPLOAD_PATH, ticket.id, file_name)
+                    
+                    # Guardar el archivo en el servidor
+                    with open(file_path, 'wb') as f:
+                        f.write(file_content)
+
+                    # Crear registro de archivo adjunto de solución
+                    ticket_attachment = TicketAttachmentRespuesta(
+                        ticket_id=ticket.id,
+                        file_name=os.path.basename(file_path),
+                        file_type=attachment.get('fileType', 'application/octet-stream'),
+                        file_content=file_content,
+                        is_description_file=False  # Es un archivo de solución
+                    )
+                    db.session.add(ticket_attachment)
+
+                    processed_attachments.append({
+                        'fileName': os.path.basename(file_path),
+                        'fileType': attachment.get('fileType', 'application/octet-stream'),
+                        'base64Content': base64.b64encode(file_content).decode('utf-8')
+                    })
+
+                except ValueError as path_error:
+                    print(f"Error de ruta al procesar archivo: {path_error}")
+                    continue
+
+            except Exception as attachment_error:
+                print(f"Error procesando archivo: {attachment_error}")
+                print(traceback.format_exc())  # Imprimir traza completa
 
         db.session.commit()
 
@@ -419,8 +518,6 @@ def update_ticket(id):
         }), 500
     finally:
         db.session.close()
-
-
 
 @bp.route("/<int:id>/finalize", methods=["PUT"])
 def finalize_ticket(id):
@@ -451,33 +548,49 @@ def finalize_ticket(id):
                 if not attachment.get('base64Content'):
                     continue  # Saltar archivos sin contenido
 
+                # Extraer base64 real (remover prefijo data:image/png;base64, si existe)
                 base64_content = attachment['base64Content'].split(',')[-1]
+                
+                # Decodificar contenido
                 file_content = base64.b64decode(base64_content)
+                
+                # Validar tamaño del archivo (por ejemplo, máximo 10MB)
+                max_file_size = 10 * 1024 * 1024  # 10 MB
+                if len(file_content) > max_file_size:
+                    print(f"Archivo {attachment.get('fileName', 'Sin nombre')} excede el tamaño máximo de 10MB")
+                    continue
 
-                # Usar la carpeta Anexos_Solucion para guardar el archivo
-                file_name = attachment.get('fileName', f'archivo_{uuid.uuid4()}')
-                file_path = os.path.join(solucion_folder, file_name)
+                # Sanitizar y obtener nombre de archivo seguro
+                file_name = sanitize_filename(attachment.get('fileName', f'archivo_{uuid.uuid4()}'))
 
-                # Guardar el archivo físicamente en el servidor
-                with open(file_path, 'wb') as f:
-                    f.write(file_content)
+                # Obtener ruta de archivo segura
+                try:
+                    file_path = get_safe_file_path(UPLOAD_PATH, ticket.id, file_name)
+                    
+                    # Guardar el archivo en el servidor
+                    with open(file_path, 'wb') as f:
+                        f.write(file_content)
 
-                # Crear registro de archivo adjunto en la base de datos
-                ticket_attachment = TicketAttachmentRespuesta(
-                    ticket_id=ticket.id,
-                    file_name=file_name,
-                    file_type=attachment.get('fileType', 'application/octet-stream'),
-                    file_content=file_content,  # Si es necesario almacenar el archivo, puedes hacerlo
-                    is_description_file=False  # Es un archivo de respuesta
-                )
-                db.session.add(ticket_attachment)
+                    # Crear registro de archivo adjunto en la base de datos
+                    ticket_attachment = TicketAttachmentRespuesta(
+                        ticket_id=ticket.id,
+                        file_name=os.path.basename(file_path),
+                        file_type=attachment.get('fileType', 'application/octet-stream'),
+                        file_content=file_content,
+                        is_description_file=False  # Es un archivo de respuesta
+                    )
+                    db.session.add(ticket_attachment)
 
-                # Añadir archivo a la lista de adjuntos para el correo
-                respuesta_email_attachments.append({
-                    'fileName': file_name,
-                    'fileType': attachment.get('fileType', 'application/octet-stream'),
-                    'base64Content': base64.b64encode(file_content).decode('utf-8')
-                })
+                    # Añadir archivo a la lista de adjuntos para el correo
+                    respuesta_email_attachments.append({
+                        'fileName': os.path.basename(file_path),
+                        'fileType': attachment.get('fileType', 'application/octet-stream'),
+                        'base64Content': base64.b64encode(file_content).decode('utf-8')
+                    })
+
+                except ValueError as path_error:
+                    print(f"Error de ruta al procesar archivo: {path_error}")
+                    continue
 
             except Exception as attachment_error:
                 print(f"Error procesando archivo de solución: {attachment_error}")
@@ -531,7 +644,64 @@ def finalize_ticket(id):
         import traceback
         traceback.print_exc()
         return jsonify({"error": str(e)}), 500
+    finally:
+        db.session.close()
 
+# Utility functions to use in the routes
+def sanitize_filename(filename):
+    """
+    Limpia y reduce el nombre del archivo
+    - Elimina caracteres no válidos
+    - Limita la longitud
+    - Usa un UUID si el nombre es problemático
+    """
+    import re
+    import uuid
+    
+    # Eliminar caracteres no válidos
+    filename = re.sub(r'[<>:"/\\|?*]', '', filename)
+    
+    # Limitar longitud
+    max_length = 255
+    if len(filename) > max_length:
+        # Tomar los primeros caracteres y añadir extensión
+        name, ext = os.path.splitext(filename)
+        filename = f"{name[:max_length-len(ext)]}{ext}"
+    
+    # Si el nombre sigue siendo problemático, usar UUID
+    if not filename or len(filename) == 0:
+        filename = f"{uuid.uuid4()}.png"
+    
+    return filename
+
+def get_safe_file_path(base_path, ticket_id, filename, subfolder="Anexos_Solucion"):
+    """
+    Genera una ruta de archivo segura con longitud limitada
+    """
+    ticket_folder = os.path.join(base_path, str(ticket_id))
+    solution_folder = os.path.join(ticket_folder, subfolder)
+    
+    # Crear carpetas si no existen
+    os.makedirs(solution_folder, exist_ok=True)
+    
+    # Intentar varias estrategias de nombrado
+    attempts = [
+        os.path.join(solution_folder, filename),
+        os.path.join(solution_folder, f"{uuid.uuid4()}_{filename}"),
+        os.path.join(solution_folder, f"{uuid.uuid4()}.png")
+    ]
+    
+    for file_path in attempts:
+        try:
+            # Intentar crear un archivo temporal para verificar la ruta
+            with open(file_path, 'wb') as f:
+                f.write(b'test')
+            os.remove(file_path)  # Eliminar el archivo de prueba
+            return file_path
+        except (OSError, IOError):
+            continue
+    
+    raise ValueError("No se pudo crear un archivo de imagen válido")
 
 @bp.route("/<int:id>", methods=["GET"])
 def get_ticket(id):
