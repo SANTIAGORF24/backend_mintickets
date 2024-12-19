@@ -34,17 +34,24 @@ def authenticate_ad_specialist(username, password):
         # Primero, intentar enlazar con las credenciales proporcionadas
         server = Server(LDAP_SERVER, get_info=ALL)
         conn = Connection(server, 
-                         user=LDAP_BIND_DN, 
-                         password=password, 
-                         auto_bind=True)
+                          user=LDAP_BIND_DN, 
+                          password=password, 
+                          auto_bind=True)
 
-        # Si el enlace es exitoso, verificar si es un especialista con st 260 o 307
+        # Primer intento de búsqueda
         conn.search(
             search_base=LDAP_SEARCH_BASE,
-            search_filter=f'(&(objectClass=user)(objectCategory=person)(sAMAccountName={username})' +
-                          '(userAccountControl=512)(|(st=260)(st=307)))',
+            search_filter=f'(&(objectClass=user)(objectCategory=person)(sAMAccountName={username})(userAccountControl=66048)(|(st=260)(st=307)))',
             attributes=['cn', 'displayName', 'mail', 'sAMAccountName', 'department', 'title', 'st']
         )
+
+        # Si no se encuentran resultados, realizar una búsqueda alternativa
+        if len(conn.entries) == 0:
+            conn.search(
+                search_base=LDAP_SEARCH_BASE,
+                search_filter=f'(&(objectClass=user)(objectCategory=person)(sAMAccountName={username})(userAccountControl=512)(|(st=260)(st=307)))',
+                attributes=['cn', 'displayName', 'mail', 'sAMAccountName', 'department', 'title', 'st']
+            )
 
         # Si se encuentra un usuario que coincida
         if len(conn.entries) > 0:
@@ -58,13 +65,12 @@ def authenticate_ad_specialist(username, password):
                 'state': entry['st'].value if 'st' in entry else ''
             }
             return specialist
-        
+
         return None
 
     except Exception as e:
         logging.error(f"Error durante la autenticación de AD: {e}")
         return None
-
 @bp.route('/login/', methods=['POST'])
 def login():
     """
