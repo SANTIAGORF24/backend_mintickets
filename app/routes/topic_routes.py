@@ -50,7 +50,7 @@ def add_topic():
     db.session.commit()
     return jsonify({'message': 'Tema agregado correctamente'}), 201
 
-@bp.route('/<int:topic_id>/', methods=['OPTIONS', 'DELETE'])
+@bp.route('/<int:topic_id>', methods=['OPTIONS', 'DELETE'])
 def handle_topic(topic_id):
     """
     Maneja solicitudes HTTP para un tema específico.
@@ -82,7 +82,7 @@ def handle_topic(topic_id):
         else:
             return jsonify({'message': 'Topic not found'}), 404
 
-@bp.route('/<int:topic_id>/', methods=['PUT'])
+@bp.route('/<int:topic_id>', methods=['PUT'])
 def update_topic(topic_id):
     """
     Actualiza el nombre de un tema existente.

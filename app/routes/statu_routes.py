@@ -51,7 +51,7 @@ def add_statu():
     db.session.commit()
     return jsonify({'message': 'Tema agregado correctamente'}), 201
 
-@bp.route('/<int:statu_id>/', methods=['OPTIONS', 'DELETE'])
+@bp.route('/<int:statu_id>', methods=['OPTIONS', 'DELETE'])
 def handle_statu(statu_id):
     """
     Maneja solicitudes HTTP para un estado específico.
@@ -83,7 +83,7 @@ def handle_statu(statu_id):
         else:
             return jsonify({'message': 'statu not found'}), 404
 
-@bp.route('/<int:statu_id>/', methods=['PUT'])
+@bp.route('/<int:statu_id>', methods=['PUT'])
 def update_statu(statu_id):
     """
     Actualiza el nombre de un estado en la base de datos.

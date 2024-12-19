@@ -22,3 +22,5 @@ instance/
 # Archivos de sistema operativo
 .DS_Store
 Thumbs.db
+
+users.db
