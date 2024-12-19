@@ -9,7 +9,7 @@ bp = Blueprint('terceros', __name__, url_prefix='/terceros')
 
 
 
-@bp.route('', methods=['GET'])
+@bp.route('/', methods=['GET'])
 def get_terceros():
     terceros = Tercero.query.all()
     if terceros:
@@ -19,7 +19,7 @@ def get_terceros():
         return jsonify({'message': 'No se encontraron terceros'}), 404
 
 
-@bp.route('', methods=['POST'])
+@bp.route('/', methods=['POST'])
 def add_tercero():
     data = request.get_json()
     name = data.get('name')
@@ -31,7 +31,7 @@ def add_tercero():
     db.session.commit()
     return jsonify({'message': 'Tercero agregado correctamente'}), 201
 
-@bp.route('/<int:tercero_id>', methods=['OPTIONS', 'DELETE'])
+@bp.route('/<int:tercero_id>/', methods=['OPTIONS', 'DELETE'])
 def handle_tercero(tercero_id):
     if request.method == 'OPTIONS':
         response = jsonify({'message': 'Preflight request handled successfully'})
@@ -48,7 +48,7 @@ def handle_tercero(tercero_id):
         else:
             return jsonify({'message': 'Tercero no encontrado'}), 404
 
-@bp.route('/<int:tercero_id>', methods=['PUT'])
+@bp.route('/<int:tercero_id>/', methods=['PUT'])
 def update_tercero(tercero_id):
     data = request.get_json()
     name = data.get('name')

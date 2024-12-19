@@ -39,8 +39,37 @@ UPLOAD_PATH=os.getenv('UPLOAD_PATH')
 bp = Blueprint("tickets", __name__, url_prefix="/tickets")
 
 
-@bp.route("/register", methods=["POST"])
+@bp.route("/register/", methods=["POST"])
 def create_ticket():
+    """
+    Crea un nuevo ticket en el sistema.
+    Este endpoint recibe datos en formato JSON para crear un nuevo ticket, 
+    valida los campos requeridos, procesa archivos adjuntos, guarda el ticket 
+    en la base de datos y envía una notificación por correo electrónico.
+    JSON de entrada:
+    {
+        "tema": "string",
+        "estado": "string",
+        "tercero_nombre": "string",
+        "tercero_email": "string",
+        "especialista_nombre": "string",
+        "especialista_email": "string",
+        "descripcion_caso": "string",
+        "solucion_caso": "string",
+        "attachments": [
+            {
+                "fileName": "string",
+                "fileType": "string",
+                "base64Content": "string"
+            }
+    }
+    Respuestas:
+    - 201: Ticket creado correctamente.
+    - 400: Campo requerido faltante o archivo adjunto excede el tamaño máximo.
+    - 500: Error interno al procesar el ticket.
+    Returns:
+        Response: Respuesta HTTP con el resultado de la operación.
+    """
     data = request.json
     try:
         # Validar campos requeridos
@@ -237,6 +266,31 @@ def create_ticket():
         db.session.close()
 
 def send_email(to_address, subject, body, images=[], attachments=[]):
+    """
+    Envía un correo electrónico con el asunto, cuerpo, imágenes y archivos adjuntos especificados.
+    Args:
+        to_address (list): Lista de direcciones de correo electrónico de los destinatarios.
+        subject (str): Asunto del correo electrónico.
+        body (str): Contenido HTML del cuerpo del correo electrónico.
+        images (list, optional): Lista de cadenas de imágenes codificadas en base64 para incrustar en el correo electrónico. Por defecto es [].
+        attachments (list, optional): Lista de diccionarios que representan archivos adjuntos. Cada diccionario debe tener:
+            - 'base64Content' (str): Contenido codificado en base64 del archivo.
+            - 'fileName' (str, opcional): Nombre del archivo. Por defecto es "archivo".
+            - 'fileType' (str, opcional): Tipo MIME del archivo. Por defecto es 'application/octet-stream'.
+    Raises:
+        Exception: Si hay un error al procesar imágenes o archivos adjuntos, o al enviar el correo electrónico.
+    Example:
+        send_email(
+            to_address=["example@example.com"],
+            subject="Correo de prueba",
+            body="<h1>Este es un correo de prueba</h1>",
+            images=["cadena_base64_imagen"],
+            attachments=[{
+                "base64Content": "cadena_base64_archivo",
+                "fileName": "prueba.pdf",
+                "fileType": "application/pdf"
+            }]
+    """
     msg = MIMEMultipart('related')
     msg['From'] = SMTP_USERNAME
     msg['To'] = ', '.join(to_address)
@@ -349,6 +403,31 @@ from datetime import datetime
 
 @bp.route("/", methods=["GET"])
 def get_tickets():
+    """
+    Recupera todos los tickets de la base de datos y los devuelve como una respuesta JSON.
+
+    Esta función consulta todos los tickets del modelo Ticket, formatea los datos de cada ticket
+    en un diccionario y los agrega a una lista. La lista de diccionarios de tickets
+    se devuelve como una respuesta JSON.
+
+    Returns:
+        Response: Una respuesta JSON de Flask que contiene una lista de diccionarios, cada
+                  uno representando un ticket con las siguientes claves:
+                  - id (int): El identificador único del ticket.
+                  - fecha_creacion (str o None): La fecha de creación del ticket en formato ISO, o None si no está disponible.
+                  - tema (str): El tema del ticket.
+                  - estado (str): El estado actual del ticket.
+                  - tercero_nombre (str): El nombre del tercero asociado con el ticket.
+                  - tercero_email (str): El correo electrónico del tercero asociado con el ticket.
+                  - especialista_nombre (str): El nombre del especialista que maneja el ticket.
+                  - especialista_email (str): El correo electrónico del especialista que maneja el ticket.
+                  - descripcion_caso (str): La descripción del caso.
+                  - solucion_caso (str): La solución proporcionada para el caso.
+                  - tiempo_de_respuesta (str): El tiempo de respuesta para el ticket.
+                  - actitud (str): La calificación de actitud para el ticket.
+                  - respuesta (str): La respuesta proporcionada para el ticket.
+                  - fecha_finalizacion (str o None): La fecha de finalización del ticket en formato ISO, o None si no está disponible.
+    """
     tickets = Ticket.query.all()
     tickets_data = []
     for ticket in tickets:
@@ -372,8 +451,19 @@ def get_tickets():
     return jsonify(tickets_data)
 
 
-@bp.route("/<int:id>", methods=["DELETE"])
+@bp.route("/<int:id>/", methods=["DELETE"])
 def delete_ticket(id):
+    """
+    Elimina un ticket y sus archivos adjuntos asociados de la base de datos y del sistema de archivos.
+    Args:
+        id (int): El ID del ticket a eliminar.
+    Returns:
+        Response: Una respuesta JSON que indica el resultado de la operación de eliminación.
+            - Si tiene éxito, devuelve un mensaje que indica que el ticket y sus archivos adjuntos fueron eliminados, con un código de estado 200.
+            - Si ocurre un error, devuelve un mensaje de error con un código de estado 500.
+    Raises:
+        Exception: Si ocurre un error durante el proceso de eliminación, se captura la excepción y se revierten los cambios.
+    """
     ticket = Ticket.query.get_or_404(id)
     
     try:
@@ -426,8 +516,28 @@ def delete_ticket(id):
 
 
 
-@bp.route("/<int:id>", methods=["PATCH"])
+@bp.route("/<int:id>/", methods=["PATCH"])
 def update_ticket(id):
+    """
+    Actualiza un ticket existente con los datos proporcionados y maneja los archivos adjuntos.
+    Args:
+        id (int): El ID del ticket a actualizar.
+    Returns:
+        Response: Una respuesta JSON que indica el resultado de la operación de actualización.
+            - En caso de éxito: {"message": "Ticket actualizado correctamente", "ticket_id": ticket.id}, estado HTTP 200.
+            - En caso de fallo: {"error": "Error interno al actualizar el ticket", "details": str(e)}, estado HTTP 500.
+    La función realiza los siguientes pasos:
+        1. Recupera el ticket por ID o devuelve un error 404 si no se encuentra.
+        2. Actualiza los campos del ticket con los datos proporcionados.
+        3. Crea los directorios necesarios para los archivos adjuntos si no existen.
+        4. Procesa y guarda los archivos adjuntos, asegurándose de que sean válidos y estén dentro de los límites de tamaño.
+        5. Confirma los cambios en la base de datos.
+        6. Maneja cualquier excepción revirtiendo la transacción y devolviendo una respuesta de error.
+    Nota:
+        - La función espera que los datos de la solicitud estén en formato JSON.
+        - Los archivos adjuntos deben proporcionarse como cadenas codificadas en base64 en el campo "attachments" de los datos JSON.
+        - La función asegura que los nombres de archivo y las rutas sean seguros.
+    """
     ticket = Ticket.query.get_or_404(id)
     data = request.json
     try:
@@ -519,8 +629,24 @@ def update_ticket(id):
     finally:
         db.session.close()
 
-@bp.route("/<int:id>/finalize", methods=["PUT"])
+@bp.route("/<int:id>/finalize/", methods=["PUT"])
 def finalize_ticket(id):
+    """
+    Finaliza un ticket actualizando sus detalles, procesando archivos adjuntos y enviando una notificación por correo electrónico.
+    Args:
+        id (int): El ID del ticket a finalizar.
+    Returns:
+        Response: Una respuesta JSON que indica el éxito o fracaso de la operación.
+    La función realiza los siguientes pasos:
+    1. Recupera el ticket por ID.
+    2. Actualiza los detalles del ticket, como la fecha de finalización, tema, estado, información del tercero y del especialista, y descripción y solución del caso.
+    3. Crea los directorios necesarios para almacenar los archivos adjuntos de la solución.
+    4. Procesa y valida los archivos adjuntos de la solicitud, guardándolos en el servidor y creando registros en la base de datos.
+    5. Recopila todos los archivos adjuntos relacionados con el ticket.
+    6. Envía un correo electrónico al tercero con los detalles del ticket y los archivos adjuntos.
+    7. Confirma los cambios en la base de datos.
+    Si ocurre un error durante el proceso, la transacción se revierte y se devuelve una respuesta de error.
+    """
     ticket = Ticket.query.get_or_404(id)
     data = request.json
     try:
@@ -654,7 +780,12 @@ def sanitize_filename(filename):
     - Elimina caracteres no válidos
     - Limita la longitud
     - Usa un UUID si el nombre es problemático
+    Args:
+        filename (str): El nombre original del archivo a sanitizar.
+    Returns:
+        str: El nombre del archivo sanitizado.
     """
+
     import re
     import uuid
     
@@ -676,8 +807,20 @@ def sanitize_filename(filename):
 
 def get_safe_file_path(base_path, ticket_id, filename, subfolder="Anexos_Solucion"):
     """
-    Genera una ruta de archivo segura con longitud limitada
+    Genera una ruta de archivo segura con una longitud limitada.
+    Esta función crea una estructura de directorios basada en la ruta base dada, el ID del ticket y un nombre de subcarpeta opcional. 
+    Luego intenta generar una ruta de archivo única dentro de esta estructura de directorios probando diferentes estrategias de nombrado.
+    Args:
+        base_path (str): La ruta base donde se encuentran las carpetas de los tickets.
+        ticket_id (int o str): El identificador único del ticket.
+        filename (str): El nombre deseado del archivo.
+        subfolder (str, opcional): El nombre de la subcarpeta dentro de la carpeta del ticket donde se debe almacenar el archivo. Por defecto es "Anexos_Solucion".
+    Returns:
+        str: Una ruta de archivo válida donde se puede crear el archivo de forma segura.
+    Raises:
+        ValueError: Si no se puede crear una ruta de archivo válida después de varios intentos.
     """
+
     ticket_folder = os.path.join(base_path, str(ticket_id))
     solution_folder = os.path.join(ticket_folder, subfolder)
     
@@ -703,8 +846,32 @@ def get_safe_file_path(base_path, ticket_id, filename, subfolder="Anexos_Solucio
     
     raise ValueError("No se pudo crear un archivo de imagen válido")
 
-@bp.route("/<int:id>", methods=["GET"])
+@bp.route("/<int:id>/", methods=["GET"])
 def get_ticket(id):
+    """
+    Recupera un ticket por su ID y devuelve sus detalles en formato JSON.
+
+    Args:
+        id (int): El ID del ticket a recuperar.
+
+    Returns:
+        tuple: Una tupla que contiene una respuesta JSON con los detalles del ticket y un código de estado HTTP.
+               Si se encuentra el ticket, el código de estado es 200.
+               Si ocurre un error, el código de estado es 404 y la respuesta contiene un mensaje de error.
+
+    Los detalles del ticket incluyen:
+        - id (int): El ID del ticket.
+        - fecha_creacion (str): La fecha de creación del ticket en formato "YYYY-MM-DD".
+        - tema (str): El tema del ticket.
+        - estado (str): El estado del ticket.
+        - tercero_nombre (str): El nombre del tercero asociado con el ticket.
+        - tercero_email (str): El correo electrónico del tercero asociado con el ticket.
+        - especialista_nombre (str): El nombre del especialista que maneja el ticket.
+        - especialista_email (str): El correo electrónico del especialista que maneja el ticket.
+        - descripcion_caso (str): La descripción del caso.
+        - solucion_caso (str): La solución al caso.
+        - fecha_finalizacion (str o None): La fecha de finalización del ticket en formato "YYYY-MM-DD", o None si no está completado.
+    """
     try:
         ticket = Ticket.query.get_or_404(id)
         ticket_info = {
@@ -728,8 +895,23 @@ def get_ticket(id):
         return jsonify({"error": str(e)}), 404
 
 
-@bp.route("/<int:id>/rate", methods=["POST"])
+@bp.route("/<int:id>/rate/", methods=["POST"])
 def rate_ticket(id):
+    """
+    Actualiza la calificación de un ticket basado en el ID proporcionado y los datos JSON.
+    Args:
+        id (int): El ID del ticket a calificar.
+    Returns:
+        Response: Una respuesta JSON con un mensaje de éxito y un código de estado 200 si la actualización es exitosa.
+                  Una respuesta JSON con un mensaje de error y un código de estado 500 si ocurre una excepción.
+    Los datos JSON deben contener los siguientes campos:
+        - tiempo_de_respuesta (str): La calificación del tiempo de respuesta.
+        - actitud (str): La calificación de la actitud.
+        - respuesta (str): La calificación de la respuesta.
+        - solutionApproval (str): Estado de aprobación de la solución ("No" significa que el ticket se marcará como "Devuelto").
+    Raises:
+        Exception: Si ocurre un error durante la confirmación en la base de datos, la transacción se revierte y se devuelve un mensaje de error.
+    """
     ticket = Ticket.query.get_or_404(id)
     data = request.json
     try:
@@ -746,12 +928,20 @@ def rate_ticket(id):
         db.session.rollback()
         return jsonify({"error": str(e)}), 500
     
-@bp.route("/<int:ticket_id>/attachments", methods=["GET"])
+@bp.route("/<int:ticket_id>/attachments/", methods=["GET"])
 def get_ticket_attachments(ticket_id):
     """
-    Retrieve all attachments associated with a specific ticket.
-    
-    Returns a list of attachment metadata without the actual file content.
+    Recupera y devuelve los archivos adjuntos asociados con un ticket específico.
+    Esta función obtiene tanto los archivos adjuntos de descripción como los de respuesta para un ID de ticket dado.
+    Devuelve una respuesta JSON que contiene los metadatos de cada archivo adjunto.
+    Args:
+        ticket_id (int): El ID del ticket para el cual se deben recuperar los archivos adjuntos.
+    Returns:
+        tuple: Una tupla que contiene una respuesta JSON y un código de estado HTTP.
+            - En caso de éxito: (jsonify(attachments_data), 200)
+            - En caso de fallo: (jsonify({"error": str(e)}), 404)
+    Raises:
+        Exception: Si ocurre un error durante el proceso de recuperación.
     """
     try:
         # Check if ticket exists
@@ -790,13 +980,23 @@ def get_ticket_attachments(ticket_id):
         return jsonify({"error": str(e)}), 404
 
 
-@bp.route("/attachment/<int:attachment_id>", methods=["GET"])
+@bp.route("/attachment/<int:attachment_id>/", methods=["GET"])
 def download_attachment(attachment_id):
     """
-    Download a specific attachment by its ID.
-    
-    Supports both description and response attachments.
+    Descarga un archivo adjunto basado en el ID del adjunto proporcionado.
+    Esta función intenta recuperar un archivo adjunto de las tablas 
+    TicketAttachmentDescripcion o TicketAttachmentRespuesta. 
+    Si se encuentra el archivo adjunto, devuelve el contenido del archivo como una respuesta descargable. 
+    Si no se encuentra el archivo adjunto, devuelve un error 404. 
+    En caso de cualquier otra excepción, devuelve un error 500 con el mensaje de la excepción.
+    Args:
+        attachment_id (int): El ID del archivo adjunto a descargar.
+    Returns:
+        Response: Un objeto de respuesta de Flask que contiene el contenido del archivo y los encabezados apropiados.
+        Si no se encuentra el archivo adjunto, devuelve una respuesta JSON con un código de estado 404.
+        Si ocurre una excepción, devuelve una respuesta JSON con un código de estado 500.
     """
+
     try:
         # Primero intentar encontrarlo en los archivos de descripción
         attachment = TicketAttachmentDescripcion.query.get(attachment_id)

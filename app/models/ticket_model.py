@@ -2,6 +2,17 @@ from app import db
 from datetime import datetime
 
 class TicketAttachmentDescripcion(db.Model):
+    """
+    Modelo que representa una descripción de adjunto de ticket.
+
+    Atributos:
+        id (int): Clave primaria para la descripción del adjunto.
+        ticket_id (int): Clave foránea que referencia el ticket asociado.
+        file_name (str): Nombre del archivo adjunto.
+        file_type (str): Tipo del archivo adjunto.
+        file_content (bytes): Contenido binario del archivo adjunto.
+        is_description_file (bool): Indicador de si el archivo es una descripción. Por defecto es True.
+    """
     id = db.Column(db.Integer, primary_key=True)
     ticket_id = db.Column(db.Integer, db.ForeignKey('ticket.id'), nullable=False)
     file_name = db.Column(db.String(255), nullable=False)
@@ -10,6 +21,17 @@ class TicketAttachmentDescripcion(db.Model):
     is_description_file = db.Column(db.Boolean, default=True)
 
 class TicketAttachmentRespuesta(db.Model):
+    """
+    Representa una respuesta de adjunto para un ticket.
+
+    Atributos:
+        id (int): La clave primaria del adjunto.
+        ticket_id (int): La clave foránea que referencia el ticket asociado.
+        file_name (str): El nombre del archivo adjunto.
+        file_type (str): El tipo del archivo adjunto.
+        file_content (bytes): El contenido binario del archivo adjunto.
+        is_description_file (bool): Indica si el archivo es una descripción. Por defecto es True.
+    """
     id = db.Column(db.Integer, primary_key=True)
     ticket_id = db.Column(db.Integer, db.ForeignKey('ticket.id'), nullable=False)
     file_name = db.Column(db.String(255), nullable=False)
@@ -19,6 +41,28 @@ class TicketAttachmentRespuesta(db.Model):
 
 
 class Ticket(db.Model):
+    """
+    Representa un ticket de soporte en el sistema.
+    Atributos:
+        id (int): El identificador único para el ticket.
+        fecha_creacion (datetime): La fecha y hora en que se creó el ticket.
+        fecha_finalizacion (datetime, opcional): La fecha y hora en que se cerró el ticket.
+        tema (str): El asunto o tema del ticket.
+        estado (str): El estado actual del ticket.
+        tercero_nombre (str, opcional): El nombre del tercero involucrado en el ticket.
+        tercero_email (str, opcional): El correo electrónico del tercero involucrado en el ticket.
+        especialista_nombre (str, opcional): El nombre del especialista asignado al ticket.
+        especialista_email (str, opcional): El correo electrónico del especialista asignado al ticket.
+        descripcion_caso (str): La descripción del caso o problema reportado en el ticket.
+        solucion_caso (str, opcional): La solución proporcionada para el caso o problema.
+        tiempo_de_respuesta (int, opcional): El tiempo de respuesta para el ticket en minutos.
+        actitud (int, opcional): La calificación de actitud para el ticket.
+        respuesta (int, opcional): La calificación de respuesta para el ticket.
+        attachments_descripcion (list): Una lista de adjuntos relacionados con la descripción del ticket.
+        attachments_respuesta (list): Una lista de adjuntos relacionados con la respuesta del ticket.
+    Métodos:
+        __repr__(): Devuelve una representación en cadena de la instancia de Ticket.
+    """
     id = db.Column(db.Integer, primary_key=True)
     fecha_creacion = db.Column(db.DateTime, nullable=False)
     fecha_finalizacion = db.Column(db.DateTime, nullable=True)

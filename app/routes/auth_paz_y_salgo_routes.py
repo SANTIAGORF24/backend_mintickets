@@ -16,8 +16,17 @@ import logging
 
 def convert_windows_timestamp(windows_timestamp):
     """
-    Convert Windows LDAP timestamp to datetime with comprehensive error handling,
-    and subtract one day from the result.
+    Convierte una marca de tiempo de Windows LDAP a un objeto datetime, resta un día del resultado y lo devuelve como una cadena en formato 'YYYY-MM-DD'.
+    Parámetros:
+        windows_timestamp (int o datetime o None): La marca de tiempo de Windows LDAP a convertir.
+            - Si es None o un valor especial (0 o 9223372036854775807), devuelve None.
+            - Si es un objeto datetime, resta un día y devuelve la fecha como una cadena.
+            - Si es un entero, lo trata como una marca de tiempo de Windows LDAP y lo convierte en consecuencia.
+    Retorna:
+        str o None: La fecha convertida como una cadena en formato 'YYYY-MM-DD', o None si la entrada es None o un valor especial.
+    Lanza:
+        TypeError: Si la entrada no es un entero, datetime o None.
+        ValueError: Si la entrada no se puede convertir a un entero.
     """
     # Check if timestamp is None or a special value indicating no expiration
     if windows_timestamp is None or windows_timestamp in [0, 9223372036854775807]:
@@ -45,6 +54,28 @@ def convert_windows_timestamp(windows_timestamp):
 
 
 def authenticate_ad_specialist(username, password):
+    """
+    Autentica a un especialista de Active Directory usando las credenciales proporcionadas.
+    Esta función se conecta a un servidor de Active Directory usando credenciales de administrador,
+    busca al usuario e intenta autenticar al usuario con el nombre de usuario y la contraseña proporcionados.
+    Si la autenticación es exitosa, devuelve un diccionario que contiene los detalles del usuario.
+    Args:
+        username (str): El nombre de usuario del especialista a autenticar.
+        password (str): La contraseña del especialista a autenticar.
+    Retorna:
+        dict: Un diccionario que contiene los detalles del usuario si la autenticación es exitosa.
+              El diccionario incluye las siguientes claves:
+              - 'username': El sAMAccountName del usuario.
+              - 'fullName': El nombre completo del usuario.
+              - 'email': La dirección de correo electrónico del usuario.
+              - 'department': El departamento del usuario.
+              - 'title': El título del usuario.
+              - 'state': El estado del usuario.
+              - 'accountExpires': La fecha de expiración de la cuenta del usuario.
+        None: Si la autenticación falla o ocurre un error.
+    Lanza:
+        Exception: Si ocurre un error durante el proceso de autenticación.
+    """
     # Active Directory configuration from environment variables
     LDAP_SERVER = os.getenv('LDAP_SERVER')
     LDAP_USERNAME = os.getenv('LDAP_USERNAME')
@@ -102,8 +133,22 @@ def authenticate_ad_specialist(username, password):
         logging.error(f"Error during AD authentication: {e}")
         return None
 
-@bp.route('/login', methods=['POST'])
+@bp.route('/login/', methods=['POST'])
 def login():
+    """
+    Maneja el inicio de sesión del usuario autenticando contra Active Directory y devolviendo un token de acceso.
+    Esta función recupera el nombre de usuario y la contraseña del cuerpo de la solicitud JSON,
+    valida las credenciales contra Active Directory y devuelve un token de acceso
+    si la autenticación es exitosa.
+    Retorna:
+        Response: Una respuesta JSON que contiene un mensaje de éxito, un token de acceso y los detalles del usuario
+                  si la autenticación es exitosa, o un mensaje de error si faltan credenciales
+                  o son inválidas.
+    Códigos de estado:
+        200: Inicio de sesión exitoso.
+        400: Faltan credenciales.
+        401: Credenciales inválidas o usuario no autorizado.
+    """
     username = request.json.get('username', None)
     password = request.json.get('password', None)
 

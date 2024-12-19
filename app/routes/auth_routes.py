@@ -11,6 +11,20 @@ load_dotenv()
 bp = Blueprint('auth', __name__, url_prefix='/auth')
 
 def authenticate_ad_specialist(username, password):
+    """
+    Autentica a un especialista de Active Directory basado en el nombre de usuario y la contraseña proporcionados.
+    Esta función intenta enlazarse a un servidor de Active Directory usando las credenciales proporcionadas.
+    Si el enlace es exitoso, busca al usuario en el directorio y verifica si es un especialista con un estado específico (st 260 o 307).
+    Si se encuentra un usuario que coincida, se devuelven sus detalles.
+    Args:
+        username (str): El nombre de usuario del especialista a autenticar.
+        password (str): La contraseña del especialista a autenticar.
+    Retorna:
+        dict: Un diccionario que contiene los detalles del especialista si la autenticación es exitosa,
+              o None si la autenticación falla o el usuario no es encontrado.
+    Lanza:
+        Exception: Si hay un error durante el proceso de autenticación.
+    """
     # Configuración de Active Directory desde variables de entorno
     LDAP_SERVER = os.getenv('LDAP_SERVER')
     LDAP_BIND_DN = f'{username}@mindeporte.loc'
@@ -51,8 +65,22 @@ def authenticate_ad_specialist(username, password):
         logging.error(f"Error durante la autenticación de AD: {e}")
         return None
 
-@bp.route('/login', methods=['POST'])
+@bp.route('/login/', methods=['POST'])
 def login():
+    """
+    Maneja el proceso de inicio de sesión para los usuarios.
+    Esta función recupera el nombre de usuario y la contraseña del cuerpo de la solicitud JSON,
+    valida las credenciales contra Active Directory y devuelve un token de acceso
+    si la autenticación es exitosa.
+    Retorna:
+        Response: Una respuesta JSON que contiene un mensaje, token de acceso e información del usuario
+                  si la autenticación es exitosa, o un mensaje de error si faltan credenciales
+                  o son inválidas.
+    Códigos de estado HTTP:
+        200: Autenticación exitosa.
+        400: Faltan credenciales.
+        401: Credenciales inválidas o usuario no autorizado.
+    """
     username = request.json.get('username', None)
     password = request.json.get('password', None)
 
