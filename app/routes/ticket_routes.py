@@ -223,7 +223,7 @@ def create_ticket():
         email_body = f"""
         <h2>Ticket creado para {data['tercero_nombre']}</h2>
         <p>Cordial saludo {data['tercero_nombre']},</p>
-        <p>Para consultar el estado de su ticket ingrese a <a href="{frontend_url}/historial">{frontend_url}/historial</a> y digite el ID del ticket</p>
+        <p>Para consultar el estado de su ticket ingrese a <a href="{frontend_url}historial">{frontend_url}historial</a> y digite el ID del ticket</p>
         <p>Se ha creado un nuevo ticket con la siguiente descripción:</p>
         <ul>
             <li>ID de ticket: {new_ticket.id}</li>
@@ -631,32 +631,16 @@ def update_ticket(id):
 
 @bp.route("/<int:id>/finalize/", methods=["PUT"])
 def finalize_ticket(id):
-    """
-    Finaliza un ticket actualizando sus detalles, procesando archivos adjuntos y enviando una notificación por correo electrónico.
-    Args:
-        id (int): El ID del ticket a finalizar.
-    Returns:
-        Response: Una respuesta JSON que indica el éxito o fracaso de la operación.
-    La función realiza los siguientes pasos:
-    1. Recupera el ticket por ID.
-    2. Actualiza los detalles del ticket, como la fecha de finalización, tema, estado, información del tercero y del especialista, y descripción y solución del caso.
-    3. Crea los directorios necesarios para almacenar los archivos adjuntos de la solución.
-    4. Procesa y valida los archivos adjuntos de la solicitud, guardándolos en el servidor y creando registros en la base de datos.
-    5. Recopila todos los archivos adjuntos relacionados con el ticket.
-    6. Envía un correo electrónico al tercero con los detalles del ticket y los archivos adjuntos.
-    7. Confirma los cambios en la base de datos.
-    Si ocurre un error durante el proceso, la transacción se revierte y se devuelve una respuesta de error.
-    """
     ticket = Ticket.query.get_or_404(id)
     data = request.json
     try:
-        ticket.fecha_finalizacion = datetime.utcnow()  # Actualizar la fecha de finalización
+        ticket.fecha_finalizacion = datetime.utcnow()
         ticket.tema = data.get("tema", ticket.tema)
-        ticket.estado = "Solucionado"  # Cambiar el estado a Solucionado
+        ticket.estado = "Solucionado"
         ticket.tercero_nombre = data.get("tercero_nombre", ticket.tercero_nombre)
-        ticket.tercero_email = data.get("tercero_email", ticket.tercero_email)  # Actualizar el correo del tercero
+        ticket.tercero_email = data.get("tercero_email", ticket.tercero_email)
         ticket.especialista_nombre = data.get("especialista_nombre", ticket.especialista_nombre)
-        ticket.especialista_email = data.get("especialista_email", ticket.especialista_email)  # Actualizar el correo del especialista
+        ticket.especialista_email = data.get("especialista_email", ticket.especialista_email)
         ticket.descripcion_caso = data.get("descripcion_caso", ticket.descripcion_caso)
         ticket.solucion_caso = data.get("solucion_caso", ticket.solucion_caso)
 
@@ -665,49 +649,43 @@ def finalize_ticket(id):
         solucion_folder = os.path.join(ticket_folder, "Anexos_Solucion")
         os.makedirs(solucion_folder, exist_ok=True)
 
-        # Procesar archivos adjuntos de respuesta
-        attachments = data.get("attachments", [])
-        respuesta_email_attachments = []  # Para los archivos que se enviarán por correo
+        # Lista única para los archivos adjuntos del correo
+        respuesta_email_attachments = []
 
+        # Procesar nuevos archivos adjuntos
+        attachments = data.get("attachments", [])
         for attachment in attachments:
             try:
                 if not attachment.get('base64Content'):
-                    continue  # Saltar archivos sin contenido
+                    continue
 
-                # Extraer base64 real (remover prefijo data:image/png;base64, si existe)
                 base64_content = attachment['base64Content'].split(',')[-1]
-                
-                # Decodificar contenido
                 file_content = base64.b64decode(base64_content)
                 
-                # Validar tamaño del archivo (por ejemplo, máximo 10MB)
-                max_file_size = 10 * 1024 * 1024  # 10 MB
+                max_file_size = 10 * 1024 * 1024
                 if len(file_content) > max_file_size:
                     print(f"Archivo {attachment.get('fileName', 'Sin nombre')} excede el tamaño máximo de 10MB")
                     continue
 
-                # Sanitizar y obtener nombre de archivo seguro
                 file_name = sanitize_filename(attachment.get('fileName', f'archivo_{uuid.uuid4()}'))
 
-                # Obtener ruta de archivo segura
                 try:
                     file_path = get_safe_file_path(UPLOAD_PATH, ticket.id, file_name)
                     
-                    # Guardar el archivo en el servidor
                     with open(file_path, 'wb') as f:
                         f.write(file_content)
 
-                    # Crear registro de archivo adjunto en la base de datos
+                    # Guardar en la base de datos
                     ticket_attachment = TicketAttachmentRespuesta(
                         ticket_id=ticket.id,
                         file_name=os.path.basename(file_path),
                         file_type=attachment.get('fileType', 'application/octet-stream'),
                         file_content=file_content,
-                        is_description_file=False  # Es un archivo de respuesta
+                        is_description_file=False
                     )
                     db.session.add(ticket_attachment)
 
-                    # Añadir archivo a la lista de adjuntos para el correo
+                    # Añadir a la lista de adjuntos para el correo
                     respuesta_email_attachments.append({
                         'fileName': os.path.basename(file_path),
                         'fileType': attachment.get('fileType', 'application/octet-stream'),
@@ -720,19 +698,25 @@ def finalize_ticket(id):
 
             except Exception as attachment_error:
                 print(f"Error procesando archivo de solución: {attachment_error}")
-                continue  # Continuar con los siguientes archivos en lugar de fallar completamente
+                continue
 
-        # Recuperar todos los archivos adjuntos del ticket (Descripción + Respuesta)
-        all_attachments = TicketAttachmentRespuesta.query.filter_by(ticket_id=ticket.id).all()
-        for attachment in all_attachments:
+        # Recuperar todos los archivos adjuntos anteriores (tanto de descripción como de respuesta)
+        # excluyendo los que acabamos de agregar
+        existing_file_names = [attachment['fileName'] for attachment in respuesta_email_attachments]
+        previous_attachments = TicketAttachmentRespuesta.query.filter(
+            TicketAttachmentRespuesta.ticket_id == ticket.id,
+            ~TicketAttachmentRespuesta.file_name.in_(existing_file_names)  # Excluir los que acabamos de agregar
+        ).all()
+        
+        for attachment in previous_attachments:
             respuesta_email_attachments.append({
                 'fileName': attachment.file_name,
                 'fileType': attachment.file_type,
                 'base64Content': base64.b64encode(attachment.file_content).decode('utf-8')
             })
 
-        # Enviar correo electrónico con los archivos adjuntos
-        encuestaLink = f"{os.getenv('FRONTEND_BASE_URL')}/encuesta?id={ticket.id}"
+        # Enviar correo electrónico
+        encuestaLink = f"{os.getenv('FRONTEND_BASE_URL')}encuesta?id={ticket.id}"
 
         email_body = f"""
         <html>
@@ -758,7 +742,7 @@ def finalize_ticket(id):
             to_address=[ticket.tercero_email],
             subject=f"Solución ticket de {ticket.tercero_nombre}",
             body=email_body,
-            images=[attachment['base64Content'] for attachment in respuesta_email_attachments if attachment['fileType'].startswith('image/')], 
+            images=[attachment['base64Content'] for attachment in respuesta_email_attachments if attachment['fileType'].startswith('image/')],
             attachments=[attachment for attachment in respuesta_email_attachments if not attachment['fileType'].startswith('image/')]
         )
 
