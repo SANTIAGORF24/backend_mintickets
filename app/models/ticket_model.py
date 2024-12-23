@@ -58,6 +58,7 @@ class Ticket(db.Model):
         tiempo_de_respuesta (int, opcional): El tiempo de respuesta para el ticket en minutos.
         actitud (int, opcional): La calificación de actitud para el ticket.
         respuesta (int, opcional): La calificación de respuesta para el ticket.
+        codigo_seguridad (int, opcional): El código de seguridad del ticket.
         attachments_descripcion (list): Una lista de adjuntos relacionados con la descripción del ticket.
         attachments_respuesta (list): Una lista de adjuntos relacionados con la respuesta del ticket.
     Métodos:
@@ -77,6 +78,7 @@ class Ticket(db.Model):
     tiempo_de_respuesta = db.Column(db.Integer, nullable=True)
     actitud = db.Column(db.Integer, nullable=True)
     respuesta = db.Column(db.Integer, nullable=True)
+    codigo_seguridad = db.Column(db.Integer, nullable=True)
     attachments_descripcion = db.relationship('TicketAttachmentDescripcion', backref='ticket', lazy=True)
     attachments_respuesta = db.relationship('TicketAttachmentRespuesta', backref='ticket', lazy=True)
 
@@ -84,5 +86,6 @@ class Ticket(db.Model):
         return (f"Ticket('{self.tema}', '{self.fecha_creacion}', '{self.fecha_finalizacion}', "
                 f"'{self.estado}', '{self.tercero_nombre}', '{self.tercero_email}', "
                 f"'{self.especialista_nombre}', '{self.especialista_email}', '{self.descripcion_caso}', '{self.solucion_caso}', "
-                f"'{self.tiempo_de_respuesta}', '{self.actitud}', '{self.respuesta}', '{self.attachments_descripcion}', '{self.attachments_respuesta}')")
+                f"'{self.tiempo_de_respuesta}', '{self.actitud}', '{self.respuesta}', '{self.attachments_descripcion}', '{self.attachments_respuesta}', "
+                f"'{self.codigo_seguridad}')")
 

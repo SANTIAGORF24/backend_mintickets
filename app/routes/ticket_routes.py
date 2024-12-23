@@ -22,6 +22,7 @@ from email.mime.base import MIMEBase
 from email import encoders
 from email.mime.application import MIMEApplication
 import traceback
+import random
 
 
 load_dotenv()  # Cargar variables de entorno
@@ -84,6 +85,9 @@ def create_ticket():
         # Usar la fecha y hora actual del servidor
         now = datetime.now(pytz.timezone('America/Bogota'))
         
+        # Generar un código de seguridad de 5 cifras
+        codigo_seguridad = random.randint(10000, 99999)
+        
         # Crear nuevo ticket
         new_ticket = Ticket(
             fecha_creacion=now,
@@ -95,7 +99,8 @@ def create_ticket():
             especialista_email=data["especialista_email"],
             descripcion_caso=data["descripcion_caso"],
             solucion_caso=data.get("solucion_caso", ""),
-            fecha_finalizacion=None
+            fecha_finalizacion=None,
+            codigo_seguridad=codigo_seguridad
         )
         
         db.session.add(new_ticket)
@@ -227,6 +232,7 @@ def create_ticket():
         <p>Se ha creado un nuevo ticket con la siguiente descripción:</p>
         <ul>
             <li>ID de ticket: {new_ticket.id}</li>
+            <li>Código de verificación: {codigo_seguridad}</li>
             <li>Tema: {data['tema']}</li>
         </ul>
         <h3>Descripción:</h3>
@@ -858,6 +864,11 @@ def get_ticket(id):
     """
     try:
         ticket = Ticket.query.get_or_404(id)
+        codigo_seguridad = request.args.get('codigo_seguridad')
+        
+        if str(ticket.codigo_seguridad) != codigo_seguridad:
+            return jsonify({"error": "Código de verificación incorrecto"}), 400
+        
         ticket_info = {
             "id": ticket.id,
             "fecha_creacion": ticket.fecha_creacion.strftime("%Y-%m-%d"),
