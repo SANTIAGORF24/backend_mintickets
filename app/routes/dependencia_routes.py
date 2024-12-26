@@ -4,6 +4,8 @@ from flask import Blueprint, jsonify, request
 from ldap3 import Server, Connection, ALL, NTLM, MODIFY_REPLACE, SUBTREE
 import logging
 import subprocess
+import shlex
+
 
 # Load environment variables from .env file
 load_dotenv()
@@ -268,7 +270,7 @@ def update_user_status(username):
 @bp.route('/<username>/password', methods=['PUT'])
 def update_user_password(username):
     """
-    Actualiza la contraseña de un usuario en Active Directory utilizando PowerShell.
+    Actualiza la contraseña de un usuario en Active Directory utilizando PowerShell en Linux.
     Args:
         username (str): El nombre de usuario del usuario a actualizar.
     Retorna:
@@ -281,9 +283,12 @@ def update_user_password(username):
         return jsonify({'error': 'Nueva contraseña no proporcionada'}), 400
 
     try:
-        # Ejecuta el script de PowerShell para cambiar la contraseña
+        # Construye el comando de PowerShell de manera segura
+        ps_command = f"Set-ADAccountPassword -Identity {shlex.quote(username)} -NewPassword (ConvertTo-SecureString -AsPlainText {shlex.quote(new_password)} -Force) -Reset"
+        
+        # Ejecuta PowerShell usando pwsh (versión Linux)
         result = subprocess.run(
-            ["powershell", "-Command", f"Set-ADAccountPassword -Identity {username} -NewPassword (ConvertTo-SecureString -AsPlainText '{new_password}' -Force) -Reset"],
+            ["/usr/bin/pwsh", "-Command", ps_command],
             capture_output=True,
             text=True
         )
