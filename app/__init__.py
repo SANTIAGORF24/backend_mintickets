@@ -64,7 +64,8 @@ from app.routes import (
     tercero_routes, 
     ticket_routes, 
     terceros_routes,
-    auth_paz_y_salgo_routes
+    auth_paz_y_salgo_routes,
+    dependencia_routes
 
 )
 
@@ -75,6 +76,8 @@ app.register_blueprint(tercero_routes.bp)
 app.register_blueprint(ticket_routes.bp)
 app.register_blueprint(terceros_routes.bp)
 app.register_blueprint(auth_paz_y_salgo_routes.bp)
+app.register_blueprint(dependencia_routes.bp)
+
 
 @app.route('/')
 def home():
