@@ -136,18 +136,40 @@ AD_ATTRIBUTE_MAP = {
     'office': 'physicalDeliveryOfficeName',
     'postOfficeBox': 'postOfficeBox',
     'state': 'st',
-    'accountExpires': 'accountExpires'
+    'accountExpires': 'accountExpires',
+    'title': 'title',  # Añadir el mapeo para el campo "title"
+    'department': 'department'  # Añadir el mapeo para el campo "department"
 }
 
 def convert_to_ad_date(date_str):
     """
     Convierte una fecha en formato 'YYYY-MM-DD' a formato de fecha de Active Directory.
+    Si la fecha es vacía o '0', retorna '0' para indicar que nunca expira.
+    
+    Args:
+        date_str (str): Fecha en formato 'YYYY-MM-DD' o cadena vacía
+        
+    Returns:
+        str: Fecha en formato AD (número de 100-nanosegundos desde 1601) o '0'
     """
+    if not date_str or date_str == '0' or date_str.lower() == 'nunca expira':
+        return '0'
+        
     from datetime import datetime
-    epoch_start = datetime(1601, 1, 1)
-    date = datetime.strptime(date_str, '%Y-%m-%d')
-    ad_date = int((date - epoch_start).total_seconds() * 10**7)
-    return ad_date
+    try:
+        # Epoch de Windows NT (1 de enero de 1601)
+        epoch_start = datetime(1601, 1, 1)
+        
+        # Convertir la fecha string a objeto datetime
+        date = datetime.strptime(date_str, '%Y-%m-%d')
+        
+        # Calcular la diferencia en 100-nanosegundos
+        delta = date - epoch_start
+        ad_timestamp = int(delta.total_seconds() * 10**7)
+        
+        return str(ad_timestamp)
+    except ValueError as e:
+        raise ValueError(f"Formato de fecha inválido. Use YYYY-MM-DD. Error: {str(e)}")
 
 @bp.route('/<username>/', methods=['PUT'])
 def update_tercero_by_username(username):
@@ -159,53 +181,51 @@ def update_tercero_by_username(username):
         Response: Una respuesta JSON que indica el éxito o fracaso de la operación.
     """
     data = request.json
+    logging.info(f"Recibiendo actualización para usuario {username}: {data}")
 
-    # Retrieve LDAP configuration from environment variables
     LDAP_SERVER = os.getenv('LDAP_SERVER')
     LDAP_USERNAME = os.getenv('LDAP_USERNAME')
     LDAP_PASSWORD = os.getenv('LDAP_PASSWORD')
     LDAP_SEARCH_BASE = os.getenv('LDAP_SEARCH_BASE')
 
     try:
-        # Establece conexión con el servidor
         server = Server(LDAP_SERVER, get_info=ALL)
         conn = Connection(server, user=LDAP_USERNAME, password=LDAP_PASSWORD, auto_bind=True)
 
-        # Busca el usuario por su nombre de usuario
         conn.search(
             search_base=LDAP_SEARCH_BASE,
             search_filter=f'(sAMAccountName={username})',
-            attributes=['cn']
+            attributes=['cn', 'accountExpires']
         )
 
         if not conn.entries:
             return jsonify({'error': 'Usuario no encontrado'}), 404
 
         dn = conn.entries[0].entry_dn
-
-        # Convert frontend field names to AD attribute names
         changes = {}
+
         for frontend_field, value in data.items():
             if frontend_field in AD_ATTRIBUTE_MAP:
                 ad_attribute = AD_ATTRIBUTE_MAP[frontend_field]
-                # Handle date fields specially
+                
                 if frontend_field == 'accountExpires':
-                    if value:
+                    try:
                         ad_date = convert_to_ad_date(value)
-                        changes[ad_attribute] = [(MODIFY_REPLACE, [str(ad_date)])]
-                    else:
-                        changes[ad_attribute] = [(MODIFY_REPLACE, ['0'])]
+                        logging.info(f"Convirtiendo fecha {value} a formato AD: {ad_date}")
+                        changes[ad_attribute] = [(MODIFY_REPLACE, [ad_date])]
+                    except ValueError as e:
+                        return jsonify({'error': str(e)}), 400
                 else:
                     changes[ad_attribute] = [(MODIFY_REPLACE, [value])]
 
         if changes:
+            logging.info(f"Aplicando cambios al usuario {username}: {changes}")
             conn.modify(dn, changes)
 
-            if not conn.result['description'] == 'success':
-                if conn.result['description'] == 'insufficientAccessRights':
-                    raise Exception("No tiene suficientes derechos de acceso para actualizar este usuario.")
-                else:
-                    raise Exception(conn.result['message'])
+            if conn.result['result'] != 0:
+                error_msg = conn.result.get('message', 'Error desconocido')
+                logging.error(f"Error al modificar usuario: {error_msg}")
+                return jsonify({'error': error_msg}), 500
 
             return jsonify({'message': 'Usuario actualizado correctamente'})
         else:
@@ -214,6 +234,9 @@ def update_tercero_by_username(username):
     except Exception as e:
         logging.error(f"Error al actualizar usuario en Active Directory: {str(e)}")
         return jsonify({'error': f'Error al actualizar usuario: {str(e)}'}), 500
+    finally:
+        if 'conn' in locals():
+            conn.unbind()
 
 @bp.route('/<username>/status', methods=['PUT'])
 def update_user_status(username):
@@ -267,10 +290,15 @@ def update_user_status(username):
         logging.error(f"Error al actualizar estado del usuario en Active Directory: {str(e)}")
         return jsonify({'error': f'Error al actualizar estado del usuario: {str(e)}'}), 500
 
+from flask import jsonify, request
+import logging
+from ldap3 import Server, Connection, MODIFY_REPLACE, SUBTREE
+import ssl
+
 @bp.route('/<username>/password', methods=['PUT'])
 def update_user_password(username):
     """
-    Actualiza la contraseña de un usuario en Active Directory utilizando PowerShell en Linux.
+    Actualiza la contraseña de un usuario en Active Directory usando LDAP directamente.
     Args:
         username (str): El nombre de usuario del usuario a actualizar.
     Retorna:
@@ -282,23 +310,57 @@ def update_user_password(username):
     if not new_password:
         return jsonify({'error': 'Nueva contraseña no proporcionada'}), 400
 
+    # Configuración de LDAP - Ajusta estos valores según tu entorno
+    LDAP_SERVER = 'ldap://tu.dominio.com'
+    LDAP_USER = 'CN=ServicioAdmin,OU=ServiceAccounts,DC=dominio,DC=com'
+    LDAP_PASSWORD = 'tu_contraseña_admin'
+    SEARCH_BASE = 'DC=dominio,DC=com'
+
     try:
-        # Construye el comando de PowerShell de manera segura
-        ps_command = f"Set-ADAccountPassword -Identity {shlex.quote(username)} -NewPassword (ConvertTo-SecureString -AsPlainText {shlex.quote(new_password)} -Force) -Reset"
+        # Crear conexión segura al servidor LDAP
+        server = Server(LDAP_SERVER, use_ssl=True, tls=ssl.create_default_context())
         
-        # Ejecuta PowerShell usando pwsh (versión Linux)
-        result = subprocess.run(
-            ["/usr/bin/pwsh", "-Command", ps_command],
-            capture_output=True,
-            text=True
+        # Conectar con credenciales de administrador
+        conn = Connection(
+            server,
+            user=LDAP_USER,
+            password=LDAP_PASSWORD,
+            auto_bind=True
         )
 
-        if result.returncode != 0:
-            raise Exception(result.stderr)
+        # Buscar al usuario
+        search_filter = f'(sAMAccountName={username})'
+        conn.search(
+            search_base=SEARCH_BASE,
+            search_filter=search_filter,
+            search_scope=SUBTREE,
+            attributes=['distinguishedName']
+        )
 
-        return jsonify({'message': 'Contraseña actualizada correctamente'})
+        if not conn.entries:
+            return jsonify({'error': 'Usuario no encontrado'}), 404
+
+        user_dn = conn.entries[0].distinguishedName.value
+
+        # Codificar la nueva contraseña en el formato requerido por AD
+        encoded_password = '"{}"'.format(new_password).encode('utf-16-le')
+
+        # Actualizar la contraseña
+        conn.modify(
+            user_dn,
+            {'unicodePwd': [(MODIFY_REPLACE, [encoded_password])]}
+        )
+
+        if conn.result['result'] == 0:
+            return jsonify({'message': 'Contraseña actualizada correctamente'})
+        else:
+            raise Exception(conn.result['message'])
 
     except Exception as e:
         logging.error(f"Error al actualizar contraseña en Active Directory: {str(e)}")
         return jsonify({'error': f'Error al actualizar contraseña: {str(e)}'}), 500
+    
+    finally:
+        if 'conn' in locals():
+            conn.unbind()
 

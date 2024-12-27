@@ -99,9 +99,12 @@ def login():
     if specialist:
         # Crear token de acceso
         access_token = create_access_token(identity=username)
+        # Imprimir el token de acceso en la consola
+        print(f"Token de acceso generado: {access_token}")
+        # Verificar que el token se está generando y devolviendo
         return jsonify({
             "message": "Inicio de sesión exitoso", 
-            "access_token": access_token,
+            "access_token": access_token,  # Aquí se devuelve el token
             "user": specialist
         }), 200
     else:
