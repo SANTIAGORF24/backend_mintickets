@@ -1,10 +1,12 @@
 import os
 from dotenv import load_dotenv
 from flask import Blueprint, jsonify, request
-from ldap3 import Server, Connection, ALL, NTLM, MODIFY_REPLACE, SUBTREE
+from ldap3 import Server, Connection, ALL, NTLM, MODIFY_REPLACE, SUBTREE, Tls
 import logging
 import subprocess
 import shlex
+import ssl
+from ntlm_auth.ntlm import NtlmContext
 
 
 # Load environment variables from .env file
@@ -290,77 +292,91 @@ def update_user_status(username):
         logging.error(f"Error al actualizar estado del usuario en Active Directory: {str(e)}")
         return jsonify({'error': f'Error al actualizar estado del usuario: {str(e)}'}), 500
 
-from flask import jsonify, request
-import logging
-from ldap3 import Server, Connection, MODIFY_REPLACE, SUBTREE
-import ssl
-
-@bp.route('/<username>/password', methods=['PUT'])
-def update_user_password(username):
-    """
-    Actualiza la contraseña de un usuario en Active Directory usando LDAP directamente.
-    Args:
-        username (str): El nombre de usuario del usuario a actualizar.
-    Retorna:
-        Response: Una respuesta JSON que indica el éxito o fracaso de la operación.
-    """
-    data = request.json
-    new_password = data.get('newPassword')
-
-    if not new_password:
-        return jsonify({'error': 'Nueva contraseña no proporcionada'}), 400
-
-    # Configuración de LDAP - Ajusta estos valores según tu entorno
-    LDAP_SERVER = 'ldap://tu.dominio.com'
-    LDAP_USER = 'CN=ServicioAdmin,OU=ServiceAccounts,DC=dominio,DC=com'
-    LDAP_PASSWORD = 'tu_contraseña_admin'
-    SEARCH_BASE = 'DC=dominio,DC=com'
-
-    try:
-        # Crear conexión segura al servidor LDAP
-        server = Server(LDAP_SERVER, use_ssl=True, tls=ssl.create_default_context())
-        
-        # Conectar con credenciales de administrador
-        conn = Connection(
-            server,
-            user=LDAP_USER,
-            password=LDAP_PASSWORD,
-            auto_bind=True
-        )
-
-        # Buscar al usuario
-        search_filter = f'(sAMAccountName={username})'
-        conn.search(
-            search_base=SEARCH_BASE,
-            search_filter=search_filter,
-            search_scope=SUBTREE,
-            attributes=['distinguishedName']
-        )
-
-        if not conn.entries:
-            return jsonify({'error': 'Usuario no encontrado'}), 404
-
-        user_dn = conn.entries[0].distinguishedName.value
-
-        # Codificar la nueva contraseña en el formato requerido por AD
-        encoded_password = '"{}"'.format(new_password).encode('utf-16-le')
-
-        # Actualizar la contraseña
-        conn.modify(
-            user_dn,
-            {'unicodePwd': [(MODIFY_REPLACE, [encoded_password])]}
-        )
-
-        if conn.result['result'] == 0:
-            return jsonify({'message': 'Contraseña actualizada correctamente'})
-        else:
-            raise Exception(conn.result['message'])
-
-    except Exception as e:
-        logging.error(f"Error al actualizar contraseña en Active Directory: {str(e)}")
-        return jsonify({'error': f'Error al actualizar contraseña: {str(e)}'}), 500
-    
     finally:
         if 'conn' in locals():
             conn.unbind()
 
+
+@bp.route('/<username>/password', methods=['PUT'])
+def change_password(username):
+    """
+    Cambia la contraseña de un usuario en Active Directory usando credenciales administrativas.
+    No requiere la contraseña actual del usuario.
+    
+    Args:
+        username (str): Nombre de usuario cuya contraseña se cambiará
+        
+    Request body debe contener:
+        new_password: Nueva contraseña
+    
+    Returns:
+        Response: JSON indicando éxito o error de la operación
+    """
+    try:
+        data = request.get_json()
+        new_password = data.get('new_password')
+        
+        if not new_password:
+            return jsonify({
+                'error': 'Se requiere nueva contraseña'
+            }), 400
+
+        # Obtener configuración del entorno
+        LDAP_SERVER = os.getenv('LDAP_SERVER')
+        LDAP_DOMAIN = os.getenv('LDAP_DOMAIN')
+        LDAP_USERNAME = os.getenv('LDAP_USERNAME')
+        LDAP_PASSWORD = os.getenv('LDAP_PASSWORD')
+        LDAP_SEARCH_BASE = os.getenv('LDAP_SEARCH_BASE')
+        
+        if not all([LDAP_SERVER, LDAP_DOMAIN, LDAP_USERNAME, LDAP_PASSWORD, LDAP_SEARCH_BASE]):
+            raise ValueError("Faltan variables de entorno LDAP requeridas")
+
+        ldap_user = f"{LDAP_DOMAIN}\\{LDAP_USERNAME}"
+
+        server = Server(LDAP_SERVER, get_info=ALL)
+        conn = Connection(server, user=LDAP_USERNAME, password=LDAP_PASSWORD, auto_bind=True)
+        
+        if not conn.bind():
+            return jsonify({
+                'error': 'Error de autenticación administrativa'
+            }), 500
+
+        conn.search(
+            search_base=LDAP_SEARCH_BASE,
+            search_filter=f'(sAMAccountName={username})',
+            attributes=['distinguishedName']
+        )
+
+        if not conn.entries:
+            return jsonify({
+                'error': 'Usuario no encontrado'
+            }), 404
+
+        user_dn = conn.entries[0].entry_dn
+
+        encoded_password = f'"{new_password}"'.encode('utf-16-le')
+        
+        changes = {
+            'unicodePwd': [(MODIFY_REPLACE, [encoded_password])]
+        }
+        
+        success = conn.modify(user_dn, changes=changes)
+        
+        if not success:
+            return jsonify({
+                'error': f'Error al cambiar contraseña: {conn.result}'
+            }), 500
+
+        return jsonify({
+            'message': 'Contraseña cambiada exitosamente'
+        })
+
+    except Exception as e:
+        logging.error(f"Error cambiando contraseña: {str(e)}")
+        return jsonify({
+            'error': f'Error interno del servidor: {str(e)}'
+        }), 500
+    
+    finally:
+        if 'conn' in locals():
+            conn.unbind()
